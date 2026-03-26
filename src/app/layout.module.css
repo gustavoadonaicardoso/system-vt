@@ -1,0 +1,50 @@
+.layoutContainer {
+  display: flex;
+  min-height: 100vh;
+}
+
+.mainContent {
+  flex: 1;
+  margin-left: var(--sidebar-width);
+  margin-top: var(--header-height);
+  padding: var(--container-padding);
+  background: var(--background);
+  min-height: calc(100vh - var(--header-height));
+  position: relative;
+  transition: var(--transition);
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+  .layoutContainer {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+
+
+/* Background Glows */
+.mainContent::before {
+  content: '';
+  position: fixed;
+  top: 10%;
+  right: -5%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, transparent 70%);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.mainContent::after {
+  content: '';
+  position: fixed;
+  bottom: 10%;
+  left: -5%;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.08) 0%, transparent 70%);
+  z-index: -1;
+  pointer-events: none;
+}
