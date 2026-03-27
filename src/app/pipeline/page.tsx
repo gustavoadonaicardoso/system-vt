@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, 
@@ -11,9 +12,20 @@ import {
   Clock,
   Grab,
   Filter,
+  Edit2,
+  Palette,
   BarChart2,
+  User,
+  Phone,
+  Hash,
+  ShoppingBag,
+  History,
+  X,
+  Trash2,
   Kanban,
-  Trash2
+  Save,
+  ChevronRight,
+  Globe
 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import styles from './pipeline.module.css';
@@ -96,9 +108,26 @@ const CustomColorPicker = ({ color, onChange }: { color: string, onChange: (c: s
 };
 
 export default function Pipeline() {
-  const { pipelineStages, updatePipelineStages, leads, openModal } = useLeads();
+  const router = useRouter();
+  const { pipelineStages, updatePipelineStages, leads, openModal, updateLead, deleteLead } = useLeads();
   const [isReady, setIsReady] = useState(false);
   const [viewMode, setViewMode] = useState<'kanban' | 'funnel'>('kanban');
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [selectedLead, setSelectedLead] = useState<any | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState<any>(null);
+
+  const toggleMenu = (stageId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setActiveMenu(activeMenu === stageId ? null : stageId);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = () => setActiveMenu(null);
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, []);
+
 
   useEffect(() => {
     setIsReady(true);
@@ -181,7 +210,10 @@ export default function Pipeline() {
           </button>
           
           {viewMode === 'kanban' && (
-            <button style={{ background: '#3b82f6', color: 'white', padding: '10px 20px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
+            <button 
+              style={{ background: '#3b82f6', color: 'white', padding: '10px 20px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, cursor: 'pointer' }}
+              onClick={addStage}
+            >
               <Plus size={18} /> Nova Etapa
             </button>
           )}
@@ -292,7 +324,58 @@ export default function Pipeline() {
                       <span>{stage.name}</span>
                       <span className={styles.leadCount}>{stage.leads.length}</span>
                     </div>
-                    <MoreVertical size={16} style={{ color: 'var(--foreground)', opacity: 0.3, cursor: 'pointer' }} />
+                    
+                    <div style={{ position: 'relative' }}>
+                      <MoreVertical 
+                        size={16} 
+                        style={{ color: 'var(--foreground)', opacity: 0.3, cursor: 'pointer' }} 
+                        onClick={(e) => toggleMenu(stage.id, e)}
+                      />
+                      
+                      <AnimatePresence>
+                        {activeMenu === stage.id && (
+                          <motion.div 
+                            className={styles.stageMenu}
+                            initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className={styles.menuHeader}>Ações da Etapa</div>
+                            
+                            <button className={styles.menuItem} onClick={() => {
+                              const newName = prompt('Novo nome da etapa:', stage.name);
+                              if (newName) updateStageConfig(stage.id, { name: newName });
+                              setActiveMenu(null);
+                            }}>
+                              <Edit2 size={14} />
+                              <span>Renomear Etapa</span>
+                            </button>
+                            
+                            <div className={styles.menuItem}>
+                              <Palette size={14} />
+                              <span>Mudar Cor</span>
+                              <div style={{ marginLeft: 'auto' }}>
+                                <CustomColorPicker 
+                                  color={stage.color} 
+                                  onChange={(color) => updateStageConfig(stage.id, { color })} 
+                                />
+                              </div>
+                            </div>
+
+                            <div className={styles.menuDivider} />
+                            
+                            <button className={`${styles.menuItem} ${styles.deleteItem}`} onClick={() => {
+                              deleteStage(stage.id);
+                              setActiveMenu(null);
+                            }}>
+                              <Trash2 size={14} />
+                              <span>Excluir Etapa</span>
+                            </button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   </div>
 
                   <Droppable droppableId={stage.id}>
@@ -316,6 +399,7 @@ export default function Pipeline() {
                                     {...provided.dragHandleProps}
                                     className={`${styles.leadCard} ${snapshot.isDragging ? styles.dragging : ''}`}
                                     style={{ ...provided.draggableProps.style }}
+                                    onClick={() => setSelectedLead(lead)}
                                   >
                                     <div className={styles.cardHeader}>
                                       <span className={styles.companyName}>{lead.name}</span>
@@ -325,10 +409,17 @@ export default function Pipeline() {
                                       <span style={{ fontSize: '0.8rem', color: 'var(--foreground)', opacity: 0.6 }}>{lead.cpfCnpj || lead.email}</span>
                                     </div>
                                     <div className={styles.leadValue}>{lead.value || 'R$ 0'}</div>
-                                    
-                                    <div className={styles.leadMeta}>
+                                                                        <div className={styles.leadMeta}>
                                       <div style={{ display: 'flex', gap: '8px' }}>
-                                        {lead.channels?.includes('whatsapp') && <MessageCircle size={14} style={{ color: '#10b981' }} />}
+                                        {lead.channels?.map((type: string) => {
+                                          switch (type.toLowerCase()) {
+                                            case 'whatsapp': return <MessageCircle key={type} size={14} style={{ color: '#25D366' }} />;
+                                            case 'instagram': return <Globe key={type} size={14} style={{ color: '#E4405F' }} />;
+                                            case 'facebook': return <Globe key={type} size={14} style={{ color: '#1877F2' }} />;
+                                            case 'site': return <Globe key={type} size={14} style={{ color: '#3498db' }} />;
+                                            default: return <Globe key={type} size={14} />;
+                                          }
+                                        })}
                                         {lead.email && <Mail size={14} style={{ color: '#3b82f6' }} />}
                                       </div>
                                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -356,6 +447,169 @@ export default function Pipeline() {
           </DragDropContext>
         </div>
       )}
+
+      {/* Modal de Detalhes do Lead */}
+      <AnimatePresence>
+        {selectedLead && (
+          <div className={styles.modalOverlayCentered} onClick={() => {
+            setSelectedLead(null);
+            setIsEditing(false);
+          }}>
+            <motion.div 
+              className={`${styles.detailsModalCentered} ${isEditing ? styles.editingMode : ''}`}
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className={styles.detailsHeader}>
+                <div className={styles.userIconLarge} style={{ background: selectedLead.color }}>
+                   <User size={32} color="white" />
+                </div>
+                <div className={styles.headerInfo}>
+                   {isEditing ? (
+                     <input 
+                       className={styles.editTitleInput}
+                       value={editForm.name} 
+                       onChange={e => setEditForm({...editForm, name: e.target.value})}
+                     />
+                   ) : (
+                     <h3 onClick={() => {
+                        setEditForm(selectedLead);
+                        setIsEditing(true);
+                     }} style={{ cursor: 'pointer' }}>{selectedLead.name}</h3>
+                   )}
+                   <span className={styles.entryDate}>Registrado em {selectedLead.entryDate || 'N/A'}</span>
+                </div>
+                <div className={styles.headerActions}>
+                  {!isEditing && (
+                    <button className={styles.deleteLeadBtn} onClick={() => {
+                      if (confirm(`Tem certeza que deseja excluir o lead ${selectedLead.name}?`)) {
+                        deleteLead(selectedLead.id);
+                        setSelectedLead(null);
+                      }
+                    }}>
+                      <Trash2 size={18} />
+                    </button>
+                  )}
+                  <button className={styles.closeDetails} onClick={() => {
+                    setSelectedLead(null);
+                    setIsEditing(false);
+                  }}>
+                    <X size={20} />
+                  </button>
+                </div>
+              </div>
+
+              <div className={styles.detailsBody}>
+                <div className={styles.infoGrid}>
+                  <div className={styles.infoCard}>
+                    <div className={styles.infoIcon}><Mail size={16} /></div>
+                    <div className={styles.infoContent}>
+                      <label>E-mail</label>
+                      {isEditing ? (
+                        <input className={styles.editInput} value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} />
+                      ) : (
+                        <span>{selectedLead.email || 'Não informado'}</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className={styles.infoCard}>
+                    <div className={styles.infoIcon}><Phone size={16} /></div>
+                    <div className={styles.infoContent}>
+                      <label>Telefone</label>
+                      {isEditing ? (
+                        <input className={styles.editInput} value={editForm.phone} onChange={e => setEditForm({...editForm, phone: e.target.value})} />
+                      ) : (
+                        <span>{selectedLead.phone || 'Não informado'}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className={styles.infoCard}>
+                    <div className={styles.infoIcon}><Hash size={16} /></div>
+                    <div className={styles.infoContent}>
+                      <label>CPF / CNPJ</label>
+                      {isEditing ? (
+                        <input className={styles.editInput} value={editForm.cpfCnpj} onChange={e => setEditForm({...editForm, cpfCnpj: e.target.value})} />
+                      ) : (
+                        <span>{selectedLead.cpfCnpj || 'Não informado'}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className={styles.infoCard}>
+                    <div className={styles.infoIcon}><ShoppingBag size={16} /></div>
+                    <div className={styles.infoContent}>
+                      <label>Valor Estimado</label>
+                      {isEditing ? (
+                        <input className={styles.editInput} value={editForm.value} onChange={e => setEditForm({...editForm, value: e.target.value})} />
+                      ) : (
+                        <span className={styles.importantValue}>{selectedLead.value || 'R$ 0,00'}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className={styles.detailsSection}>
+                  <label><History size={14} /> Histórico e Notas</label>
+                  <div className={styles.notesArea}>
+                     <div className={styles.noteItem}>
+                        <div className={styles.noteDot} style={{ background: selectedLead.color }} />
+                        <div className={styles.noteContent}>
+                           <p>Lead adicionado à etapa <strong>{pipelineStages.find(s => s.id === selectedLead.pipelineStage)?.name}</strong></p>
+                           <span>Há {selectedLead.days || 0} dias</span>
+                        </div>
+                     </div>
+                  </div>
+                </div>
+
+                <div className={styles.tagSection}>
+                   <label>Tags</label>
+                   <div className={styles.detailsTags}>
+                      {selectedLead.tags?.map((tag: string) => (
+                        <span key={tag} className={styles.detailsTag}>{tag}</span>
+                      ))}
+                      {(!selectedLead.tags || selectedLead.tags.length === 0) && <span style={{ opacity: 0.3 }}>Nenhuma tag aplicada</span>}
+                   </div>
+                </div>
+              </div>
+
+              <div className={styles.detailsFooter}>
+                 {isEditing ? (
+                   <>
+                    <button className={styles.cancelEditBtn} onClick={() => setIsEditing(false)}>
+                      Cancelar
+                    </button>
+                    <button className={styles.saveBtn} onClick={() => {
+                        updateLead(selectedLead.id, editForm);
+                        setSelectedLead({...selectedLead, ...editForm});
+                        setIsEditing(false);
+                    }}>
+                      <Save size={18} />
+                      Salvar Alterações
+                    </button>
+                   </>
+                 ) : (
+                   <>
+                    <button className={styles.whatsappBtn} onClick={() => router.push(`/messages?chatId=${selectedLead.id}`)}>
+                        <MessageCircle size={18} />
+                        Conversar via WhatsApp
+                    </button>
+                    <button className={styles.editBtn} onClick={() => {
+                        setEditForm(selectedLead);
+                        setIsEditing(true);
+                    }}>
+                        <Edit2 size={16} />
+                    </button>
+                   </>
+                 )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

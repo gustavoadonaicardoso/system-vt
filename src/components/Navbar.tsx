@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { Search, Bell, Plus, HelpCircle, Menu, X } from 'lucide-react';
+import { Bell, Plus, HelpCircle, Menu, X } from 'lucide-react';
 import styles from './Navbar.module.css';
 import ThemeToggle from './ThemeToggle';
 import { useSidebar } from '@/components/SidebarProvider';
@@ -23,10 +23,6 @@ const Navbar = () => {
         <button className={styles.hamburger} onClick={toggleMobileMenu}>
           {isMobileOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
-        <div className={styles.searchArea}>
-          <Search size={18} className={styles.searchIcon} />
-          <input type="text" placeholder="Buscar leads, tarefas ou clientes..." />
-        </div>
       </div>
 
       <div className={styles.actionArea}>

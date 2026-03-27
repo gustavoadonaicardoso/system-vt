@@ -3,6 +3,43 @@
   margin: 0 auto;
 }
 
+.filterContainer {
+  position: relative;
+}
+
+.filterDropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 180px;
+  padding: 8px;
+  z-index: 100;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+}
+
+.filterOption {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filterOption:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #3b82f6;
+}
+
+.filterActive {
+  background: rgba(59, 130, 246, 0.1) !important;
+  border-color: #3b82f6 !important;
+  color: #3b82f6 !important;
+}
+
 .header {
   display: flex;
   justify-content: space-between;
@@ -113,19 +150,22 @@
   align-items: center;
 }
 
-.searchBar size {
+.searchBar svg {
   position: absolute;
-  left: 1rem;
-  opacity: 0.3;
+  left: 14px;
+  opacity: 0.4;
+  pointer-events: none;
 }
 
 .searchBar input {
   width: 100%;
+  padding: 10px 12px 10px 42px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 10px 10px 2.8rem;
+  border-radius: 12px;
   color: var(--foreground);
+  font-size: 0.9rem;
+  transition: all 0.2s;
   outline: none;
 }
 
@@ -209,15 +249,14 @@
 }
 
 .channelIcon {
-  width: 24px;
-  height: 24px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--foreground);
-  opacity: 0.7;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .statusBadge {
@@ -405,4 +444,290 @@
   .modalInfoGrid {
     grid-template-columns: 1fr;
   }
+}
+
+.modalOverlayCentered {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.tagModal {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.tagModalContent {
+  padding: 2rem;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.newTagArea {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 2rem;
+}
+
+.inputWrapper {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputIcon {
+  position: absolute;
+  left: 14px;
+  opacity: 0.4;
+}
+
+.inputWrapper input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 12px 12px 42px;
+  color: var(--foreground);
+  font-size: 0.95rem;
+  transition: all 0.2s;
+}
+
+.inputWrapper input:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.addTagFinalBtn {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 0 1.5rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.addTagFinalBtn:hover:not(:disabled) {
+  background: #2563eb;
+  transform: translateY(-2px);
+}
+
+.addTagFinalBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.tagGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  min-height: 100px;
+}
+
+.tagItem {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  padding: 6px 10px 6px 14px;
+  border-radius: 100px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.deleteTagBtn {
+  background: none;
+  border: none;
+  color: #3b82f6;
+  opacity: 0.5;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.deleteTagBtn:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.tagModalFooter {
+  padding: 1.5rem 2rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.finishBtn {
+  background: var(--foreground);
+  color: var(--background);
+  border: none;
+  border-radius: 12px;
+  padding: 12px 24px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.2s;
+}
+
+.finishBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(255, 255, 255, 0.1);
+}
+
+.emptyTags {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  opacity: 0.3;
+  font-weight: 600;
+}
+
+.tagIconWrapper {
+  width: 40px;
+  height: 40px;
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.editInputGroup {
+  margin-bottom: 1rem;
+  text-align: left;
+}
+
+.editInputGroup label {
+  display: block;
+  font-size: 0.75rem;
+  opacity: 0.4;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
+.editInput {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: var(--foreground);
+  font-size: 0.95rem;
+  transition: all 0.2s;
+}
+
+.editInput:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.editBtn, .saveBtn, .cancelBtn {
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.editBtn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  flex: 1;
+  justify-content: center;
+}
+
+.saveBtn {
+  background: #3b82f6;
+  border: none;
+  color: white;
+  flex: 2;
+  justify-content: center;
+}
+
+.cancelBtn {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--foreground);
+  opacity: 0.6;
+}
+
+.cancelBtn:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tagListFull {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tagBadgeLarge {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.addTagSmall {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px dashed var(--border);
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.addTagSmall:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #3b82f6;
 }

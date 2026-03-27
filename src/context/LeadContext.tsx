@@ -51,6 +51,11 @@ type LeadContextType = {
   openModal: () => void;
   closeModal: () => void;
   addLead: (leadData: Omit<Lead, 'id' | 'entryDate' | 'status' | 'color' | 'channels' | 'lastMsg'>) => void;
+  updateLead: (leadId: string, updates: Partial<Lead>) => void;
+  deleteLead: (leadId: string) => void;
+  tags: string[];
+  addTag: (tag: string) => void;
+  deleteTag: (tag: string) => void;
   updatePipelineStages: (newStages: PipelineStage[]) => void;
   dbStatus: boolean;
 };
@@ -66,6 +71,7 @@ export const useLeads = () => {
 export const LeadProvider = ({ children }: { children: ReactNode }) => {
   const [leads, setLeads] = useState<Lead[]>(INITIAL_LEADS);
   const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>(INITIAL_PIPELINE_STAGES);
+  const [tags, setTags] = useState<string[]>(['Quente', 'Frio', 'VIP', 'SSD', 'Inativa', 'Ganhos', 'Proposta']);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [dbStatus, setDbStatus] = useState(false);
 
@@ -172,6 +178,44 @@ export const LeadProvider = ({ children }: { children: ReactNode }) => {
     );
   };
 
+  const updateLead = async (leadId: string, updates: Partial<Lead>) => {
+    // Sync with Supabase if active
+    if (supabase && dbStatus && !leadId.startsWith('lead-')) {
+      const dbUpdates: any = {};
+      if (updates.name) dbUpdates.name = updates.name;
+      if (updates.email) dbUpdates.email = updates.email;
+      if (updates.phone) dbUpdates.phone = updates.phone;
+      if (updates.cpfCnpj) dbUpdates.cpf_cnpj = updates.cpfCnpj;
+      if (updates.value) {
+        dbUpdates.value = parseFloat((updates.value || '0').replace(/[^0-9,-]+/g,"").replace(",",".") || "0");
+      }
+      
+      await supabase.from('leads').update(dbUpdates).eq('id', leadId);
+    }
+
+    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, ...updates } : l));
+  };
+
+  const deleteLead = async (leadId: string) => {
+    if (supabase && dbStatus && !leadId.startsWith('lead-')) {
+       await supabase.from('leads').delete().eq('id', leadId);
+    }
+
+    setLeads(prev => prev.filter(l => l.id !== leadId));
+    setPipelineStages(prev => prev.map(s => ({
+      ...s,
+      leads: s.leads.filter(id => id !== leadId)
+    })));
+  };
+
+  const addTag = (tag: string) => {
+    if (!tags.includes(tag)) setTags(prev => [...prev, tag]);
+  };
+
+  const deleteTag = (tag: string) => {
+    setTags(prev => prev.filter(t => t !== tag));
+  };
+
   const updatePipelineStages = async (newStages: PipelineStage[]) => {
     if (supabase && dbStatus) {
       let movedLeadId = null;
@@ -205,6 +249,11 @@ export const LeadProvider = ({ children }: { children: ReactNode }) => {
       openModal,
       closeModal,
       addLead,
+      updateLead,
+      deleteLead,
+      tags,
+      addTag,
+      deleteTag,
       updatePipelineStages,
       dbStatus
     }}>

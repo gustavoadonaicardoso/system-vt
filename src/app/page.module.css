@@ -65,11 +65,30 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 100px;
+  justify-content: center;
 }
 
-.filterBtn:hover {
+.filterBtn:hover:not(:disabled) {
   background: #2563eb;
   transform: translateY(-1px);
+}
+
+.filterBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .bannersSection {
@@ -197,7 +216,7 @@
   justify-content: space-between;
   margin-bottom: 1.2rem;
   color: var(--foreground);
-  opacity: 0.4;
+  opacity: 1; /* Increased from 0.4 */
 }
 
 
@@ -210,6 +229,7 @@
   align-items: center;
   justify-content: center;
   color: var(--accent);
+  opacity: 1; /* Ensure icon is visible */
 }
 
 .kpiValue {
@@ -221,7 +241,8 @@
 .kpiLabel {
   font-size: 0.85rem;
   color: var(--foreground);
-  opacity: 0.4;
+  opacity: 0.7; /* Increased from 0.4 */
+  font-weight: 500;
 }
 
 
@@ -246,7 +267,7 @@
 }
 
 .chartContainer {
-  height: 400px;
+  height: 480px;
   padding: 1.5rem;
   border-radius: 20px;
   background: var(--panel-bg);
@@ -255,45 +276,195 @@
   flex-direction: column;
 }
 
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
 
 .sectionTitle {
   font-size: 1.1rem;
   font-weight: 600;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0;
+}
+
+.periodBadge {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  padding: 4px 12px;
+  border-radius: 100px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.funnelWrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 0 1rem;
+}
+
+.funnelStep {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.stepVisual {
+  display: flex;
+  justify-content: center;
+}
+
+.stepBar {
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.25rem;
+  transition: all 0.3s ease;
+  min-width: 150px;
+}
+
+.stepBar:hover {
+  transform: scale(1.02);
+  filter: brightness(1.1);
+}
+
+.stepInfoLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stepIcon {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+.stepLabel {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: white;
+}
+
+.stepValue {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: white;
+}
+
+.conversionInfo {
+  position: absolute;
+  top: -1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 2;
+}
+
+.conversionValue {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--foreground);
+  opacity: 1; /* Increased from 0.6 */
+  background: var(--panel-bg);
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.funnelSummary {
+  margin-top: 2rem;
+  display: flex;
+  justify-content: space-around;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.summaryItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.summaryLabel {
+  font-size: 0.75rem;
+  opacity: 0.8; /* Increased from 0.5 */
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.summaryValue {
+  font-size: 1.2rem;
+  font-weight: 800;
+}
+
+.summaryDivider {
+  width: 1px;
+  background: var(--border);
 }
 
 .activityList {
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
+  gap: 1.25rem; /* Reduced back as items were too far from each other */
+  margin-top: 2rem; /* Drastically increased to separate from title */
+  overflow-y: auto; /* Ensure it doesn't leak out */
+  max-height: 380px; /* Limit height within container */
+  padding-right: 8px; /* For scrollbar space */
+}
+
+.activityList::-webkit-scrollbar {
+  width: 4px;
+}
+
+.activityList::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.1);
+  border-radius: 10px;
 }
 
 .activityItem {
   display: flex;
-  gap: 12px;
-  font-size: 0.85rem;
+  gap: 16px; 
+  font-size: 0.9rem; 
   align-items: flex-start;
+  line-height: 1.4;
+  padding-bottom: 0.75rem;
 }
 
 .activityIcon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: rgba(128, 128, 128, 0.1);
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(128, 128, 128, 0.08);
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--foreground);
-  opacity: 0.6;
+  opacity: 1;
 }
 
 
 .activityTime {
   color: var(--foreground);
-  opacity: 0.4;
+  opacity: 0.6;
   font-size: 0.75rem;
   margin-top: 4px;
+  display: block;
 }
 
 .onlineBadge {
@@ -326,7 +497,8 @@
 .progressInfo {
   font-size: 0.75rem;
   color: var(--foreground);
-  opacity: 0.4;
+  opacity: 0.8; /* Increased from 0.4 */
+  font-weight: 500;
 }
 
 /* Media Queries at the end to ensure they override primary styles */
@@ -353,8 +525,8 @@
   padding: 1rem;
   font-size: 0.85rem;
   color: var(--foreground);
-  opacity: 0.5;
-  font-weight: 600;
+  opacity: 0.8; /* Increased from 0.5 */
+  font-weight: 700;
   border-bottom: 1px solid var(--border);
 }
 
@@ -398,7 +570,7 @@
 .statusOffline {
   background: rgba(128, 128, 128, 0.1);
   color: var(--foreground);
-  opacity: 0.5;
+  opacity: 0.8; /* Increased from 0.5 */
 }
 
 .salesCount {
@@ -471,6 +643,218 @@
   .mainGrid {
     grid-template-columns: 1fr;
     gap: 1.5rem;
+  }
+}
+
+/* Modal Styles */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.modalContent {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 32px;
+  width: 100%;
+  max-width: 500px;
+  padding: 3rem;
+  position: relative;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.closeModal {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  background: rgba(128, 128, 128, 0.1);
+  border: none;
+  color: var(--foreground);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  z-index: 10;
+}
+
+.closeModal:hover {
+  background: rgba(128, 128, 128, 0.2);
+  transform: rotate(90deg);
+}
+
+.modalHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+  align-items: center;
+}
+
+.modalIcon {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+}
+
+.modalBadge {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: var(--accent);
+  opacity: 0.9;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.modalTitle {
+  font-size: 1.6rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+  line-height: 1.2;
+}
+
+.modalSubtitle {
+  font-size: 0.95rem;
+  color: var(--foreground);
+  opacity: 0.6;
+}
+
+.registrationForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.formField label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  opacity: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.formField input {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  padding: 14px 20px;
+  border-radius: 14px;
+  color: var(--foreground);
+  font-family: inherit;
+  outline: none;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.formField input::placeholder {
+  text-align: center;
+  opacity: 0.5;
+}
+
+.formField input:focus {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.05);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+.submitBtn {
+  margin-top: 1rem;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: white;
+  border: none;
+  padding: 16px;
+  border-radius: 14px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 10px 20px -5px rgba(59, 130, 246, 0.4);
+}
+
+.submitBtn:hover {
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 20px 30px -10px rgba(59, 130, 246, 0.5);
+}
+
+.submitBtn span {
+  font-size: 1rem;
+}
+
+.successEvent {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05));
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 1.25rem;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.successEvent strong {
+  color: #10b981;
+}
+
+.successEvent span {
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@media (max-width: 480px) {
+  .modalContent {
+    padding: 1.5rem;
+  }
+  
+  .modalHeader {
+    flex-direction: column;
+    text-align: center;
+    gap: 1rem;
+  }
+  
+  .modalIcon {
+    margin: 0 auto;
   }
 }
 

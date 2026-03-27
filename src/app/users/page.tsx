@@ -8,13 +8,31 @@ import {
   Trash2, 
   Key,
   ShieldAlert,
-  X
+  X,
+  User,
+  LayoutDashboard,
+  Kanban,
+  Users,
+  MessageSquare,
+  Zap,
+  Blocks,
+  UserCog
 } from 'lucide-react';
 import styles from './users.module.css';
 
 // Mock data
 type Role = 'ADMIN' | 'MANAGER' | 'SELLER';
 type Status = 'ACTIVE' | 'INACTIVE';
+
+interface Permissions {
+  dashboard: { view: boolean; kpis: boolean; funnel: boolean; activities: boolean };
+  pipeline: { view: boolean; move: boolean; edit: boolean; manageStages: boolean };
+  leads: { view: boolean; edit: boolean; delete: boolean; tags: boolean; export: boolean };
+  messages: { view: boolean; send: boolean; start: boolean };
+  automations: { view: boolean; manage: boolean };
+  integrations: { view: boolean; manage: boolean };
+  team: { view: boolean; manage: boolean };
+}
 
 interface User {
   id: string;
@@ -23,80 +41,91 @@ interface User {
   role: Role;
   status: Status;
   createdAt: string;
+  permissions: Permissions;
 }
 
+const DEFAULT_PERMISSIONS: Permissions = {
+  dashboard: { view: true, kpis: true, funnel: true, activities: true },
+  pipeline: { view: true, move: true, edit: true, manageStages: true },
+  leads: { view: true, edit: true, delete: true, tags: true, export: true },
+  messages: { view: true, send: true, start: true },
+  automations: { view: true, manage: true },
+  integrations: { view: true, manage: true },
+  team: { view: true, manage: true },
+};
+
+const SELLER_PERMISSIONS: Permissions = {
+  dashboard: { view: true, kpis: true, funnel: false, activities: false },
+  pipeline: { view: true, move: true, edit: true, manageStages: false },
+  leads: { view: true, edit: true, delete: false, tags: true, export: false },
+  messages: { view: true, send: true, start: true },
+  automations: { view: false, manage: false },
+  integrations: { view: false, manage: false },
+  team: { view: false, manage: false },
+};
+
 const MOCK_USERS: User[] = [
-  { id: '1', name: 'Gustavo Admin', email: 'gustavo@vortice.tech', role: 'ADMIN', status: 'ACTIVE', createdAt: '2025-10-15' },
-  { id: '2', name: 'Rafael Silva', email: 'rafael.vendas@vortice.tech', role: 'MANAGER', status: 'ACTIVE', createdAt: '2026-01-10' },
-  { id: '3', name: 'Ana Souza', email: 'ana.s@vortice.tech', role: 'SELLER', status: 'ACTIVE', createdAt: '2026-02-05' },
-  { id: '4', name: 'Carlos Mendes', email: 'carlos@vortice.tech', role: 'SELLER', status: 'INACTIVE', createdAt: '2026-02-20' },
+  { id: '1', name: 'Gustavo Admin', email: 'gustavo@vortice.tech', role: 'ADMIN', status: 'ACTIVE', createdAt: '2025-10-15', permissions: DEFAULT_PERMISSIONS },
+  { id: '2', name: 'Rafael Silva', email: 'rafael.vendas@vortice.tech', role: 'MANAGER', status: 'ACTIVE', createdAt: '2026-01-10', permissions: DEFAULT_PERMISSIONS },
+  { id: '3', name: 'Ana Souza', email: 'ana.s@vortice.tech', role: 'SELLER', status: 'ACTIVE', createdAt: '2026-02-05', permissions: SELLER_PERMISSIONS },
+  { id: '4', name: 'Carlos Mendes', email: 'carlos@vortice.tech', role: 'SELLER', status: 'INACTIVE', createdAt: '2026-02-20', permissions: SELLER_PERMISSIONS },
 ];
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>(MOCK_USERS);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-  
-  // Form states
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [role, setRole] = useState<Role>('SELLER');
-  const [status, setStatus] = useState<Status>('ACTIVE');
+  const [selectedUserId, setSelectedUserId] = useState<string>(users[0].id);
+  const [activeTab, setActiveTab] = useState<'info' | 'permissions'>('permissions');
+  const [isEditing, setIsEditing] = useState(false);
 
-  const openNewUserModal = () => {
-    setEditingUser(null);
-    setName('');
-    setEmail('');
-    setRole('SELLER');
-    setStatus('ACTIVE');
-    setIsModalOpen(true);
+  // Derive selection
+  const selectedUser = users.find(u => u.id === selectedUserId) || users[0];
+
+  // Local form states
+  const [name, setName] = useState(selectedUser.name);
+  const [email, setEmail] = useState(selectedUser.email);
+  const [role, setRole] = useState<Role>(selectedUser.role);
+  const [status, setStatus] = useState<Status>(selectedUser.status);
+  const [userPermissions, setUserPermissions] = useState<Permissions>(selectedUser.permissions);
+
+  // Effect to sync local state with selection
+  React.useEffect(() => {
+    setName(selectedUser.name);
+    setEmail(selectedUser.email);
+    setRole(selectedUser.role);
+    setStatus(selectedUser.status);
+    setUserPermissions(selectedUser.permissions);
+  }, [selectedUserId]);
+
+  const togglePermission = (category: keyof Permissions, field: string) => {
+    setUserPermissions(prev => ({
+      ...prev,
+      [category]: {
+        ...(prev[category] as any),
+        [field]: !(prev[category] as any)[field]
+      }
+    }));
+    setIsEditing(true);
   };
 
-  const openEditModal = (user: User) => {
-    setEditingUser(user);
-    setName(user.name);
-    setEmail(user.email);
-    setRole(user.role);
-    setStatus(user.status);
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-  };
-
-  const saveUser = () => {
+  const saveChanges = () => {
     if (!name || !email) return alert('Preencha os campos obrigatórios.');
-    
-    if (editingUser) {
-      setUsers(users.map(u => u.id === editingUser.id ? { ...u, name, email, role, status } : u));
-    } else {
-      const newUser: User = {
-        id: Date.now().toString(),
-        name,
-        email,
-        role,
-        status,
-        createdAt: new Date().toISOString().split('T')[0]
-      };
-      setUsers([...users, newUser]);
-    }
-    closeModal();
+    setUsers(users.map(u => u.id === selectedUserId ? { ...u, name, email, role, status, permissions: userPermissions } : u));
+    setIsEditing(false);
   };
 
-  const deleteUser = (id: string) => {
-    if (confirm('Tem certeza que deseja inativar ou excluir este usuário?')) {
-      // Por segurança, apenas inativamos no mock
-      setUsers(users.map(u => u.id === id ? { ...u, status: 'INACTIVE' } : u));
-    }
-  };
-
-  const getRoleBadge = (r: Role) => {
-    switch (r) {
-      case 'ADMIN': return <span className={`${styles.roleBadge} ${styles.roleAdmin}`}>Administrador</span>;
-      case 'MANAGER': return <span className={`${styles.roleBadge} ${styles.roleManager}`}>Gerente</span>;
-      case 'SELLER': return <span className={`${styles.roleBadge} ${styles.roleSeller}`}>Vendedor</span>;
-    }
+  const createNewMember = () => {
+    const newUser: User = {
+      id: Date.now().toString(),
+      name: 'Novo Colaborador',
+      email: 'novo@vortice.tech',
+      role: 'SELLER',
+      status: 'ACTIVE',
+      permissions: SELLER_PERMISSIONS,
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+    setUsers([...users, newUser]);
+    setSelectedUserId(newUser.id);
+    setIsEditing(true);
   };
 
   return (
@@ -104,152 +133,189 @@ export default function UsersPage() {
       <header className={styles.headerRow}>
         <div className={styles.titleSection}>
           <h2>Equipe e Permissões</h2>
-          <p>Cadastre usuários, defina papéis de acesso e gerencie a hierarquia do CRM.</p>
+          <p>Selecione um membro para gerenciar seus acessos e informações.</p>
         </div>
         
-        <button className={styles.addBtn} onClick={openNewUserModal}>
-          <Plus size={18} /> Novo Usuário
+        <button className={styles.addBtn} onClick={createNewMember}>
+          <Plus size={18} /> Novo Membro
         </button>
       </header>
 
-      <div className={styles.tableContainer}>
-        <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--border)', display: 'flex', gap: '10px' }}>
-           <Search size={20} style={{ opacity: 0.5 }} />
-           <input 
-             type="text" 
-             placeholder="Buscar usuário por nome ou email..." 
-             style={{ border: 'none', background: 'transparent', color: 'var(--foreground)', outline: 'none', flex: 1 }}
-           />
-        </div>
-        
-        <div style={{ overflowX: 'auto' }}>
-          <table className={styles.usersTable}>
-            <thead>
-              <tr>
-                <th>Usuário</th>
-                <th>Acesso (Role)</th>
-                <th>Status</th>
-                <th>Data de Criação</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map(user => (
-                <tr key={user.id}>
-                  <td>
-                    <div className={styles.userInfo}>
-                      <div className={styles.avatar}>
-                        {user.name.charAt(0)}{user.name.split(' ')[1]?.charAt(0) || ''}
-                      </div>
-                      <div>
-                        <div className={styles.userName}>{user.name}</div>
-                        <div className={styles.userEmail}>{user.email}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    {getRoleBadge(user.role)}
-                  </td>
-                  <td>
-                    <div className={`${styles.statusBadge} ${user.status === 'ACTIVE' ? styles.statusActive : styles.statusInactive}`}>
-                      <span className={styles.statusDot}></span>
-                      {user.status === 'ACTIVE' ? 'Ativo' : 'Inativo'}
-                    </div>
-                  </td>
-                  <td style={{ opacity: 0.7, fontSize: '0.9rem' }}>
-                    {new Date(user.createdAt).toLocaleDateString('pt-BR')}
-                  </td>
-                  <td>
-                    <div className={styles.actions}>
-                      <button className={`${styles.actionBtn} ${styles.btnEdit}`} onClick={() => openEditModal(user)} title="Editar Usuário">
-                        <Edit2 size={16} />
-                      </button>
-                      <button className={`${styles.actionBtn} ${styles.btnKey}`} title="Redefinir Senha / Permissões">
-                        <Key size={16} />
-                      </button>
-                      {user.id !== '1' && (
-                        <button className={`${styles.actionBtn} ${styles.btnDelete}`} onClick={() => deleteUser(user.id)} title="Desativar/Remover">
-                          <Trash2 size={16} />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {isModalOpen && (
-        <div className={styles.modalOverlay} onClick={closeModal}>
-          <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <h3>{editingUser ? 'Editar Usuário' : 'Novo Usuário'}</h3>
-              <button className={styles.closeBtn} onClick={closeModal}>
-                <X size={24} />
-              </button>
-            </div>
-            
-            <div className={styles.formGroup}>
-              <label>Nome Completo</label>
-              <input 
-                type="text" 
-                className={styles.input} 
-                value={name} 
-                onChange={e => setName(e.target.value)} 
-                placeholder="Ex: João Silva"
-              />
-            </div>
-
-            <div className={styles.formGroup}>
-              <label>E-mail Corporativo</label>
-              <input 
-                type="email" 
-                className={styles.input} 
-                value={email} 
-                onChange={e => setEmail(e.target.value)} 
-                placeholder="joao@suaempresa.com"
-              />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div className={styles.formGroup}>
-                <label>Nível de Acesso</label>
-                <select className={styles.select} value={role} onChange={e => setRole(e.target.value as Role)}>
-                  <option value="SELLER">Vendedor (Básico)</option>
-                  <option value="MANAGER">Gerente (Avançado)</option>
-                  <option value="ADMIN">Administrador (Total)</option>
-                </select>
-              </div>
-
-              <div className={styles.formGroup}>
-                <label>Status</label>
-                <select className={styles.select} value={status} onChange={e => setStatus(e.target.value as Status)}>
-                  <option value="ACTIVE">Ativo</option>
-                  <option value="INACTIVE">Inativo</option>
-                </select>
-              </div>
-            </div>
-
-            {role === 'ADMIN' && (
-              <div style={{ background: 'rgba(239, 68, 68, 0.1)', borderLeft: '4px solid #ef4444', padding: '12px', borderRadius: '8px', display: 'flex', gap: '12px', alignItems: 'flex-start', marginTop: '0.5rem' }}>
-                <ShieldAlert size={20} color="#ef4444" style={{ flexShrink: 0, marginTop: '2px' }} />
-                <p style={{ fontSize: '0.85rem', color: '#ef4444', margin: 0 }}>
-                  Aviso: O administrador tem acesso total a faturamento, exclusão de dados e configurações do sistema. Conceda este papel com cuidado.
-                </p>
-              </div>
-            )}
-
-            <div className={styles.modalActions}>
-              <button className={styles.btnCancel} onClick={closeModal}>Cancelar</button>
-              <button className={styles.btnSave} onClick={saveUser}>
-                {editingUser ? 'Salvar Alterações' : 'Criar Usuário'}
-              </button>
-            </div>
+      <div className={styles.splitLayout}>
+        <aside className={styles.sidebarSection}>
+          <div className={styles.searchBlock}>
+            <Search size={16} />
+            <input type="text" placeholder="Filtrar equipe..." />
           </div>
-        </div>
-      )}
+          
+          <div className={styles.userList}>
+            {users.map(u => (
+              <div 
+                key={u.id} 
+                className={`${styles.userCard} ${selectedUserId === u.id ? styles.userCardActive : ''}`}
+                onClick={() => setSelectedUserId(u.id)}
+              >
+                <div className={styles.userAvatarSmall}>
+                  {u.name.charAt(0)}{u.name.split(' ')[1]?.charAt(0) || ''}
+                </div>
+                <div className={styles.userMetaCompact}>
+                  <div className={styles.userNameSmall}>{u.name}</div>
+                  <div className={styles.userRoleSmall}>{u.role}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </aside>
+
+        <main className={styles.mainEditorSection}>
+          {selectedUser && (
+            <div className={styles.editorContainer}>
+              <div className={styles.editorProfileHeader}>
+                <div className={styles.profileMain}>
+                  <div className={styles.profileAvatarLarge}>
+                    {selectedUser.name.charAt(0)}{selectedUser.name.split(' ')[1]?.charAt(0) || ''}
+                  </div>
+                  <div className={styles.profileTexts}>
+                    <h3>{selectedUser.name}</h3>
+                    <p>{selectedUser.email}</p>
+                  </div>
+                </div>
+                
+                {isEditing && (
+                  <button className={styles.saveAlertBtn} onClick={saveChanges}>
+                    <Plus size={16} /> Salvar Alterações
+                  </button>
+                )}
+              </div>
+
+              <div className={styles.tabSwitcher}>
+                <button 
+                  className={`${styles.tabBtn} ${activeTab === 'info' ? styles.tabActive : ''}`}
+                  onClick={() => setActiveTab('info')}
+                >
+                  Informações
+                </button>
+                <button 
+                  className={`${styles.tabBtn} ${activeTab === 'permissions' ? styles.tabActive : ''}`}
+                  onClick={() => setActiveTab('permissions')}
+                >
+                  Permissões de Acesso
+                </button>
+              </div>
+
+              <div className={styles.editorScroller}>
+                {activeTab === 'info' ? (
+                  <div className={styles.infoFormGrid}>
+                    <div className={styles.formGroup}>
+                      <label>Nome Completo</label>
+                      <input 
+                        className={styles.input} 
+                        value={name} 
+                        onChange={e => { setName(e.target.value); setIsEditing(true); }} 
+                      />
+                    </div>
+                    <div className={styles.formGroup}>
+                      <label>E-mail Corporativo</label>
+                      <input 
+                        className={styles.input} 
+                        value={email} 
+                        onChange={e => { setEmail(e.target.value); setIsEditing(true); }} 
+                      />
+                    </div>
+                    <div className={styles.formGroup}>
+                      <label>Papel no Sistema</label>
+                      <select 
+                        className={styles.select} 
+                        value={role} 
+                        onChange={e => { 
+                          const newRole = e.target.value as Role;
+                          setRole(newRole);
+                          setIsEditing(true);
+                          if (newRole === 'ADMIN') setUserPermissions(DEFAULT_PERMISSIONS);
+                          else if (newRole === 'SELLER') setUserPermissions(SELLER_PERMISSIONS);
+                        }}
+                      >
+                        <option value="ADMIN">Administrador</option>
+                        <option value="MANAGER">Gerente</option>
+                        <option value="SELLER">Vendedor</option>
+                      </select>
+                    </div>
+                    <div className={styles.formGroup}>
+                      <label>Status</label>
+                      <select 
+                        className={styles.select} 
+                        value={status} 
+                        onChange={e => { setStatus(e.target.value as Status); setIsEditing(true); }}
+                      >
+                        <option value="ACTIVE">Ativo</option>
+                        <option value="INACTIVE">Inativo</option>
+                      </select>
+                    </div>
+                  </div>
+                ) : (
+                  <div className={styles.permissionsLayoutGrid}>
+                    {Object.entries(userPermissions).map(([category, items]) => {
+                       const categoryMap: any = {
+                        dashboard: { name: 'Dashboard / Painel', icon: LayoutDashboard, color: '#3b82f6' },
+                        pipeline: { name: 'Funil de Vendas', icon: Kanban, color: '#8b5cf6' },
+                        leads: { name: 'Gestão de Leads', icon: Users, color: '#10b981' },
+                        messages: { name: 'Mensagens / Chat', icon: MessageSquare, color: '#f59e0b' },
+                        automations: { name: 'Automações', icon: Zap, color: '#ef4444' },
+                        integrations: { name: 'Integrações', icon: Blocks, color: '#3b82f6' },
+                        team: { name: 'Equipe / Membros', icon: UserCog, color: '#10b981' }
+                      };
+
+                      const fieldMap: any = {
+                        view: 'Visualizar Módulo',
+                        kpis: 'Ver Indicadores (KPIs)',
+                        funnel: 'Ver Relatório de Funil',
+                        activities: 'Ver Logs de Atividade',
+                        move: 'Mover Cards no Funil',
+                        edit: 'Editar Informações',
+                        manageStages: 'Gerenciar Etapas',
+                        delete: 'Excluir Registros',
+                        tags: 'Gerenciar Etiquetas',
+                        export: 'Exportar Dados (.csv)',
+                        send: 'Enviar Mensagens',
+                        start: 'Iniciar Novos Chats',
+                        manage: 'Configuração Total'
+                      };
+
+                      const cat = categoryMap[category] || { name: category, icon: ShieldAlert, color: '#ccc' };
+
+                      return (
+                        <div key={category} className={styles.permissionCardSection}>
+                          <div className={styles.cardHeaderSmall}>
+                            <cat.icon size={14} color={cat.color} />
+                            <h4>{cat.name}</h4>
+                          </div>
+                          <div className={styles.permissionSwitchList}>
+                            {Object.entries(items).map(([field, value]) => (
+                               <div key={field} className={styles.switchRow}>
+                                 <label className={styles.cyberLabel}>
+                                   <span>{fieldMap[field] || field}</span>
+                                   <div className={styles.cyberSwitch}>
+                                      <input 
+                                        type="checkbox" 
+                                        checked={value as boolean}
+                                        onChange={() => togglePermission(category as keyof Permissions, field)}
+                                      />
+                                      <span className={styles.cyberSlider}></span>
+                                   </div>
+                                 </label>
+                               </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   );
 }

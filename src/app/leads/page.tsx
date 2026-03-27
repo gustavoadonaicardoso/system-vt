@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, 
   UserCheck, 
@@ -14,29 +14,49 @@ import {
   Eye, 
   Trash2, 
   Ban,
-  Tag as TagIcon,
   Filter,
   Globe,
-  MoreVertical
+  MoreVertical,
+  X,
+  Check,
+  Tag as TagIcon,
+  MessageCircle
 } from 'lucide-react';
 
 import styles from './leads.module.css';
 import { useLeads } from '@/context/LeadContext';
 
 const ChannelIcon = ({ type }: { type: string }) => {
-  switch (type) {
-    case 'whatsapp': return <MessageSquare size={14} />;
-    case 'instagram': return <MessageSquare size={14} />;
-    case 'facebook': return <Globe size={14} />;
-    case 'site': return <Globe size={14} />;
-    default: return null;
+  switch (type.toLowerCase()) {
+    case 'whatsapp': return <MessageCircle size={16} style={{ color: '#25D366' }} />;
+    case 'instagram': return <Globe size={16} style={{ color: '#E4405F' }} />;
+    case 'facebook': return <Globe size={16} style={{ color: '#1877F2' }} />;
+    case 'site': return <Globe size={16} style={{ color: '#3498db' }} />;
+    default: return <Globe size={16} />;
   }
 };
 
 export default function LeadsPage() {
-  const { leads, openModal } = useLeads();
+  const { leads, openModal, tags, addTag, deleteTag, updateLead, deleteLead } = useLeads();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLead, setSelectedLead] = useState<any>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState<any>(null);
+  const [isTagModalOpen, setIsTagModalOpen] = useState(false);
+  const [newTag, setNewTag] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string>('Todos');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+  const filteredLeads = leads.filter(lead => {
+    const matchesSearch = 
+      lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      lead.phone.includes(searchTerm) ||
+      lead.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    const matchesStatus = filterStatus === 'Todos' || lead.status === filterStatus;
+
+    return matchesSearch && matchesStatus;
+  });
 
   const kpis = [
     { label: 'Total de Leads', value: leads.length.toString(), icon: Users, color: '#3b82f6' },
@@ -52,7 +72,7 @@ export default function LeadsPage() {
           <p>Visualize e gerencie todos os contatos da sua base em um só lugar.</p>
         </div>
         <div className={styles.headerActions}>
-          <button className={styles.tagBtn}>
+          <button className={styles.tagBtn} onClick={() => setIsTagModalOpen(true)}>
             <TagIcon size={18} /> Configurar Tags
           </button>
           <button className={styles.primaryBtn} onClick={openModal}>
@@ -92,9 +112,25 @@ export default function LeadsPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <button className={styles.filterBtn}>
-            <Filter size={18} /> Filtrar
-          </button>
+          <div className={styles.filterContainer}>
+            <button className={`${styles.filterBtn} ${filterStatus !== 'Todos' ? styles.filterActive : ''}`} onClick={() => setIsFilterOpen(!isFilterOpen)}>
+              <Filter size={18} /> {filterStatus === 'Todos' ? 'Filtrar' : filterStatus}
+            </button>
+            <AnimatePresence>
+              {isFilterOpen && (
+                <motion.div 
+                  className={styles.filterDropdown}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                >
+                  <div className={styles.filterOption} onClick={() => { setFilterStatus('Todos'); setIsFilterOpen(false); }}>Todos</div>
+                  <div className={styles.filterOption} onClick={() => { setFilterStatus('Ativo'); setIsFilterOpen(false); }}>Ativos</div>
+                  <div className={styles.filterOption} onClick={() => { setFilterStatus('Bloqueado'); setIsFilterOpen(false); }}>Bloqueados</div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
         <div className={styles.tableWrapper}>
@@ -112,7 +148,7 @@ export default function LeadsPage() {
               </tr>
             </thead>
             <tbody>
-              {leads.map((lead) => (
+              {filteredLeads.map((lead) => (
                 <tr key={lead.id}>
                   <td>
                     <div className={styles.leadCell}>
@@ -148,10 +184,10 @@ export default function LeadsPage() {
                   </td>
                   <td>
                     <div className={styles.actions}>
-                      <button className={styles.actionBtn} title="Mensagem"><MessageSquare size={16} /></button>
+                      <button className={styles.actionBtn} title="Mensagem" onClick={() => window.location.href = `/messages?chatId=${lead.id}`}><MessageSquare size={16} /></button>
                       <button className={styles.actionBtn} title="Ver Detalhes" onClick={() => setSelectedLead(lead)}><Eye size={16} /></button>
-                      <button className={styles.actionBtn} title="Editar"><Edit3 size={16} /></button>
-                      <button className={styles.actionBtn} title="Mais"><MoreVertical size={16} /></button>
+                      <button className={styles.actionBtn} title="Editar" onClick={() => { setSelectedLead(lead); setIsEditing(true); setEditForm({...lead}); }}><Edit3 size={16} /></button>
+                      <button className={styles.actionBtn} title="Excluir" onClick={() => { if(window.confirm('Excluir este lead?')) deleteLead(lead.id); }}><Trash2 size={16} /></button>
                     </div>
                   </td>
                 </tr>
@@ -161,58 +197,260 @@ export default function LeadsPage() {
         </div>
       </div>
 
-      {/* Pop-up de Detalhes (Simplificado aqui para exemplo) */}
+      {/* Modal de Detalhes Completo */}
       {selectedLead && (
-        <div className={styles.modalOverlay} onClick={() => setSelectedLead(null)}>
+        <div className={styles.modalOverlay} onClick={() => { setSelectedLead(null); setIsEditing(false); }}>
           <motion.div 
             className={styles.modal}
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className={styles.modalHeader}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div className={styles.tagIconWrapper}>
+                  <Users size={20} color="#3b82f6" />
+                </div>
+                <div>
+                  <h2 style={{ margin: 0 }}>{isEditing ? 'Editar Lead' : 'Detalhes do Lead'}</h2>
+                  <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.5 }}>
+                    {isEditing ? 'Atualize as informações do contato' : 'Visualize todas as informações do lead'}
+                  </p>
+                </div>
+              </div>
+              <button className={styles.closeBtn} onClick={() => { setSelectedLead(null); setIsEditing(false); }}><X size={20} /></button>
+            </header>
+
+            <div className={styles.modalContent}>
+              <div className={styles.modalProfile}>
+                <div className={styles.largeAvatar} style={{ background: `linear-gradient(135deg, ${selectedLead.color || '#3b82f6'}, #000)` }}>
+                  {selectedLead.name[0]}
+                </div>
+                {!isEditing ? (
+                  <>
+                    <h3 style={{ margin: '0.5rem 0 0.2rem' }}>{selectedLead.name}</h3>
+                    <p style={{ opacity: 0.6, fontSize: '0.9rem' }}>{selectedLead.phone}</p>
+                  </>
+                ) : (
+                  <div style={{ marginTop: '1rem', width: '100%' }}>
+                    <div className={styles.editInputGroup}>
+                      <label>Nome Completo</label>
+                      <input 
+                        className={styles.editInput}
+                        value={editForm?.name || ''} 
+                        onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className={styles.modalInfoGrid}>
+                {isEditing ? (
+                  <>
+                    <div className={styles.editInputGroup}>
+                      <label>E-mail</label>
+                      <input 
+                        className={styles.editInput}
+                        value={editForm?.email || ''} 
+                        onChange={(e) => setEditForm({...editForm, email: e.target.value})}
+                      />
+                    </div>
+                    <div className={styles.editInputGroup}>
+                      <label>Telefone</label>
+                      <input 
+                        className={styles.editInput}
+                        value={editForm?.phone || ''} 
+                        onChange={(e) => setEditForm({...editForm, phone: e.target.value})}
+                      />
+                    </div>
+                    <div className={styles.editInputGroup}>
+                      <label>CPF/CNPJ</label>
+                      <input 
+                        className={styles.editInput}
+                        value={editForm?.cpf_cnpj || ''} 
+                        onChange={(e) => setEditForm({...editForm, cpf_cnpj: e.target.value})}
+                      />
+                    </div>
+                    <div className={styles.editInputGroup}>
+                      <label>Valor (R$)</label>
+                      <input 
+                        className={styles.editInput}
+                        type="number"
+                        value={editForm?.value || 0} 
+                        onChange={(e) => setEditForm({...editForm, value: parseFloat(e.target.value)})}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className={styles.infoItem}>
+                      <label>E-mail</label>
+                      <span>{selectedLead.email || 'Não informado'}</span>
+                    </div>
+                    <div className={styles.infoItem}>
+                      <label>Telefone</label>
+                      <span>{selectedLead.phone}</span>
+                    </div>
+                    <div className={styles.infoItem}>
+                      <label>CPF/CNPJ</label>
+                      <span>{selectedLead.cpf_cnpj || 'Não informado'}</span>
+                    </div>
+                    <div className={styles.infoItem}>
+                      <label>Valor</label>
+                      <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(selectedLead.value || 0)}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className={styles.tagSection} style={{ marginTop: '1.5rem' }}>
+                <label style={{ fontSize: '0.75rem', opacity: 0.4, textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>Tags do Lead</label>
+                <div className={styles.tagListFull}>
+                  {(isEditing ? (editForm?.tags || []) : (selectedLead.tags || [])).map((tag: string) => (
+                    <span key={tag} className={styles.tagBadgeLarge}>
+                      {tag}
+                      {isEditing && (
+                        <button 
+                          onClick={() => setEditForm({...editForm, tags: editForm.tags.filter((t: string) => t !== tag)})}
+                          style={{ background: 'none', border: 'none', marginLeft: '6px', cursor: 'pointer', display: 'flex' }}
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </span>
+                  ))}
+                  {isEditing && (
+                    <div className={styles.addTagSmall}>
+                      <Plus size={14} />
+                      <select 
+                        onChange={(e) => {
+                          if (e.target.value && !editForm.tags.includes(e.target.value)) {
+                            setEditForm({...editForm, tags: [...editForm.tags, e.target.value]});
+                          }
+                          e.target.value = '';
+                        }}
+                        style={{ background: 'none', border: 'none', color: 'inherit', outline: 'none', cursor: 'pointer' }}
+                      >
+                        <option value="">Add Tag</option>
+                        {tags.filter(t => !editForm.tags.includes(t)).map(t => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <footer className={styles.modalFooter}>
+              {isEditing ? (
+                <>
+                  <button className={styles.cancelBtn} onClick={() => setIsEditing(false)}>Cancelar</button>
+                  <button 
+                    className={styles.saveBtn}
+                    onClick={() => {
+                      updateLead(selectedLead.id, editForm);
+                      setSelectedLead({...editForm});
+                      setIsEditing(false);
+                    }}
+                  >
+                    Salvar Alterações <Check size={18} />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button 
+                    className={styles.editBtn} 
+                    onClick={() => { 
+                      setIsEditing(true); 
+                      setEditForm({...selectedLead}); 
+                    }}
+                  >
+                    <Edit3 size={18} /> Editar Lead
+                  </button>
+                  <button 
+                    className={styles.primaryBtn}
+                    onClick={() => window.location.href = `/messages?chatId=${selectedLead.id}`}
+                  >
+                    Abrir Conversa <MessageSquare size={18} />
+                  </button>
+                </>
+              )}
+            </footer>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Modal de Gestão de Tags */}
+      {isTagModalOpen && (
+        <div className={styles.modalOverlayCentered} onClick={() => setIsTagModalOpen(false)}>
+          <motion.div 
+            className={styles.tagModal}
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             onClick={(e) => e.stopPropagation()}
           >
             <header className={styles.modalHeader}>
-              <h2>Detalhes do Lead</h2>
-              <button onClick={() => setSelectedLead(null)}>X</button>
-            </header>
-            <div className={styles.modalContent}>
-              <div className={styles.modalProfile}>
-                <div className={styles.largeAvatar} style={{ background: `linear-gradient(135deg, ${selectedLead.color}, #000)` }}>
-                  {selectedLead.name[0]}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div className={styles.tagIconWrapper}>
+                  <TagIcon size={20} color="#3b82f6" />
                 </div>
-                <h3>{selectedLead.name}</h3>
-                <p>{selectedLead.phone}</p>
+                <div>
+                  <h2 style={{ margin: 0 }}>Gerenciar Tags</h2>
+                  <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.5 }}>Crie e organize as etiquetas dos seus leads</p>
+                </div>
               </div>
-              <div className={styles.modalInfoGrid}>
-                <div className={styles.infoItem}>
-                  <label>Status</label>
-                  <span>{selectedLead.status}</span>
+              <button className={styles.closeBtn} onClick={() => setIsTagModalOpen(false)}><X size={20} /></button>
+            </header>
+
+            <div className={styles.tagModalContent}>
+              <div className={styles.newTagArea}>
+                <div className={styles.inputWrapper}>
+                  <TagIcon size={16} className={styles.inputIcon} />
+                  <input 
+                    type="text" 
+                    placeholder="Nome da nova tag..." 
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newTag.trim()) {
+                        addTag(newTag.trim());
+                        setNewTag('');
+                      }
+                    }}
+                  />
                 </div>
-                <div className={styles.infoItem}>
-                  <label>Entrou em</label>
-                  <span>{selectedLead.entryDate}</span>
-                </div>
-                <div className={styles.infoItem}>
-                  <label>Última Interação</label>
-                  <span>{selectedLead.lastMsg}</span>
-                </div>
-                <div className={styles.infoItem}>
-                  <label>Canais Ativos</label>
-                  <div className={styles.channelList}>
-                    {selectedLead.channels.map((ch: string) => (
-                      <span key={ch} className={styles.channelTag}>{ch}</span>
-                    ))}
+                <button 
+                  className={styles.addTagFinalBtn} 
+                  disabled={!newTag.trim()}
+                  onClick={() => {
+                    addTag(newTag.trim());
+                    setNewTag('');
+                  }}
+                >
+                  <Plus size={18} /> Criar
+                </button>
+              </div>
+
+              <div className={styles.tagGrid}>
+                {tags.map(tag => (
+                  <div key={tag} className={styles.tagItem}>
+                    <span>{tag}</span>
+                    <button className={styles.deleteTagBtn} onClick={() => deleteTag(tag)}>
+                      <X size={14} />
+                    </button>
                   </div>
-                </div>
+                ))}
+                {tags.length === 0 && (
+                  <div className={styles.emptyTags}>Nenhuma tag criada ainda.</div>
+                )}
               </div>
             </div>
-            <footer className={styles.modalFooter}>
-              <button className={styles.blockBtn}><Ban size={16} /> Bloquear</button>
-              <button className={styles.deleteBtn}><Trash2 size={16} /> Excluir</button>
-              <button 
-                className={styles.primaryBtn}
-                onClick={() => window.location.href = `/messages?chatId=${selectedLead.id}`}
-              >
-                Abrir Conversa
+
+            <footer className={styles.tagModalFooter}>
+              <button className={styles.finishBtn} onClick={() => setIsTagModalOpen(false)}>
+                Concluir <Check size={18} />
               </button>
             </footer>
           </motion.div>
