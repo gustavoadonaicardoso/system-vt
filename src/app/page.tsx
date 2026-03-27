@@ -86,14 +86,25 @@ const userData = [
 ];
 
 
-const eventsBanners = [
+interface Banner {
+  title: string;
+  description: string;
+  date: string;
+  type: string;
+  color: string;
+  icon: any;
+  iconName?: string;
+}
+
+const eventsBanners: Banner[] = [
   {
     title: "Vórtice Summit 2026",
     description: "O maior evento sobre o Futuro do CRM e Gestão Comercial do Brasil.",
     date: "15 de Agosto",
     type: "Presencial • SP",
     color: "linear-gradient(135deg, #1d4ed8, #8b5cf6)",
-    icon: Users
+    icon: Users,
+    iconName: 'zap'
   },
   {
     title: "Masterclass: Alta Conversão",
@@ -101,7 +112,8 @@ const eventsBanners = [
     date: "Amanhã, 19:00",
     type: "Online • Gratuito",
     color: "linear-gradient(135deg, #10b981, #059669)",
-    icon: Calendar
+    icon: Calendar,
+    iconName: 'flame'
   },
   {
     title: "Imersão SSD",
@@ -109,7 +121,8 @@ const eventsBanners = [
     date: "Vagas Limitadas",
     type: "Mentoria Vip",
     color: "linear-gradient(135deg, #f59e0b, #d97706)",
-    icon: TrendingUp
+    icon: TrendingUp,
+    iconName: 'rocket'
   }
 ];
 

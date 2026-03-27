@@ -21,7 +21,6 @@ import {
   MoreVertical,
   Plus as PlusIcon,
   MousePointer2,
-  CursorClick,
   Monitor,
   Database,
   ArrowRight,
