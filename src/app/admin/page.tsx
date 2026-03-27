@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import styles from './admin.module.css';
 
-export default function MasterPanel() {
+export default function AdminPage() {
   const router = useRouter();
 
   const masterModules = [

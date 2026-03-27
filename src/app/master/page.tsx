@@ -31,7 +31,7 @@ const DEFAULT_SETTINGS = {
   faviconUrl: '',
 };
 
-export default function MasterPanel() {
+export default function MasterPage() {
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [saved, setSaved] = useState(false);
   const [activeTab, setActiveTab] = useState<'branding' | 'modules'>('modules');
