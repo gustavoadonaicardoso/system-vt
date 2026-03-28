@@ -15,7 +15,9 @@ import {
   Blocks,
   LifeBuoy,
   ShieldCheck,
-  UserCog
+  UserCog,
+  BarChart3,
+  Briefcase
 } from 'lucide-react';
 import styles from './Sidebar.module.css';
 import { useSidebar } from '@/components/SidebarProvider';
@@ -23,8 +25,10 @@ import { useSidebar } from '@/components/SidebarProvider';
 
 const navItems = [
   { name: 'Início', icon: LayoutDashboard, path: '/' },
+  { name: 'Projetos', icon: Briefcase, path: '/projetos' },
   { name: 'Pipeline', icon: Kanban, path: '/pipeline' },
   { name: 'Leads', icon: Users, path: '/leads' },
+  { name: 'Relatórios', icon: BarChart3, path: '/relatorios' },
   
   { name: 'Equipe', icon: UserCog, path: '/users' },
   { name: 'Automações', icon: Zap, path: '/automations' },

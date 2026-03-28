@@ -14,6 +14,7 @@ import {
   Eye,
   CheckCircle2,
   Layout,
+  ClipboardList,
   ShieldAlert,
   Activity,
   Settings,
@@ -48,6 +49,14 @@ export default function MasterPage() {
       icon: Layout,
       color: '#3b82f6',
       path: '/admin/banners'
+    },
+    {
+      id: 'projetos',
+      title: 'Planos de Ação',
+      desc: 'Formule as estratégias, metas e projetos em andamento dos seus clientes.',
+      icon: ClipboardList,
+      color: '#8b5cf6',
+      path: '/admin/projetos'
     },
     {
       id: 'permissions',

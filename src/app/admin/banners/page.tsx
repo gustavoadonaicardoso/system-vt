@@ -42,30 +42,7 @@ const PRESET_ICONS = [
   { id: 'sparkles', icon: Sparkles },
 ];
 
-const DEFAULT_BANNERS: Banner[] = [
-  {
-    title: "Vórtice Summit 2026",
-    description: "O maior evento sobre o Futuro do CRM e Gestão Comercial do Brasil.",
-    date: "15 de Agosto",
-    type: "Presencial • SP",
-    color: PRESET_COLORS[0],
-    iconName: 'zap',
-    location: 'Expo Center Norte, São Paulo',
-    time: '09:00 - 18:00',
-    fullInfo: 'Um dia inteiro de imersão com os maiores nomes do mercado tech.'
-  },
-  {
-    title: "Masterclass: Alta Conversão",
-    description: "Aprenda a estruturar um processo de vendas irresistível.",
-    date: "Amanhã",
-    type: "Online • Gratuito",
-    color: PRESET_COLORS[1],
-    iconName: 'flame',
-    location: 'Zoom / YouTube Live',
-    time: '19:00',
-    fullInfo: 'Link exclusivo enviado para inscritos via e-mail e WhatsApp.'
-  }
-];
+const DEFAULT_BANNERS: Banner[] = [];
 
 export default function AdminBanners() {
   const [banners, setBanners] = useState<Banner[]>([]);

@@ -96,35 +96,7 @@ interface Banner {
   iconName?: string;
 }
 
-const eventsBanners: Banner[] = [
-  {
-    title: "Vórtice Summit 2026",
-    description: "O maior evento sobre o Futuro do CRM e Gestão Comercial do Brasil.",
-    date: "15 de Agosto",
-    type: "Presencial • SP",
-    color: "linear-gradient(135deg, #1d4ed8, #8b5cf6)",
-    icon: Users,
-    iconName: 'zap'
-  },
-  {
-    title: "Masterclass: Alta Conversão",
-    description: "Aprenda a estruturar um processo de vendas irresistível.",
-    date: "Amanhã, 19:00",
-    type: "Online • Gratuito",
-    color: "linear-gradient(135deg, #10b981, #059669)",
-    icon: Calendar,
-    iconName: 'flame'
-  },
-  {
-    title: "Imersão SSD",
-    description: "Structure, Scale & Dominate: Escala baseada em dados precisos.",
-    date: "Vagas Limitadas",
-    type: "Mentoria Vip",
-    color: "linear-gradient(135deg, #f59e0b, #d97706)",
-    icon: TrendingUp,
-    iconName: 'rocket'
-  }
-];
+const eventsBanners: Banner[] = [];
 
 const funnelData = [
   { label: 'Leads', value: 1280, icon: Users, color: '#3b82f6' },
