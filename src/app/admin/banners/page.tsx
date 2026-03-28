@@ -8,7 +8,10 @@ import {
 } from 'lucide-react';
 import styles from './admin.module.css';
 
+import { supabase } from '@/lib/supabase';
+
 interface Banner {
+  id?: string;
   title: string;
   description: string;
   date: string;
@@ -48,19 +51,64 @@ export default function AdminBanners() {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const saved = localStorage.getItem('vortice_banners');
-    if (saved) setBanners(JSON.parse(saved));
-    else setBanners(DEFAULT_BANNERS);
+    fetchBanners();
   }, []);
 
-  const saveToDisk = (newBanners: Banner[]) => {
+  const fetchBanners = async () => {
+    if (!supabase) return;
+    setLoading(true);
+    const { data } = await supabase.from('platform_banners').select('*').order('created_at');
+    if (data && data.length > 0) {
+      setBanners(data.map(b => ({
+        id: b.id,
+        title: b.title,
+        description: b.description,
+        date: b.date_string,
+        type: b.badge_type,
+        color: b.color_gradient,
+        iconName: b.icon_name,
+        location: b.location,
+        time: b.time,
+        fullInfo: b.fullInfo
+      })));
+    } else {
+      const saved = localStorage.getItem('vortice_banners');
+      if (saved) setBanners(JSON.parse(saved));
+    }
+    setLoading(false);
+  };
+
+  const saveToDisk = async (newBanners: Banner[]) => {
     setBanners(newBanners);
+    
+    if (supabase) {
+      // Logic: Delete all and re-insert for simple sync, or better: upsert
+      // To keep it simple for the user as a "Update All" action:
+      await supabase.from('platform_banners').delete().neq('id', '00000000-0000-0000-0000-000000000000'); // clear all
+      
+      const dbRows = newBanners.map(b => ({
+        title: b.title,
+        description: b.description,
+        date_string: b.date,
+        badge_type: b.type,
+        color_gradient: b.color,
+        icon_name: b.iconName,
+        location: b.location,
+        time: b.time,
+        fullInfo: b.fullInfo
+      }));
+
+      await supabase.from('platform_banners').insert(dbRows);
+    }
+
     localStorage.setItem('vortice_banners', JSON.stringify(newBanners));
     setSuccess(true);
     setTimeout(() => setSuccess(false), 2000);
   };
+
 
   const updateBannerField = (idx: number, field: keyof Banner, val: string) => {
     const next = [...banners];

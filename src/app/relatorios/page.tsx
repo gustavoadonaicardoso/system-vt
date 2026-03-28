@@ -32,35 +32,9 @@ import {
 } from 'lucide-react';
 import styles from './relatorios.module.css';
 
-// Mock Data
-const revenueData = [
-  { name: 'Jan', value: 45000 },
-  { name: 'Fev', value: 52000 },
-  { name: 'Mar', value: 48000 },
-  { name: 'Abr', value: 61000 },
-  { name: 'Mai', value: 59000 },
-  { name: 'Jun', value: 75000 },
-  { name: 'Jul', value: 82000 },
-  { name: 'Ago', value: 95000 },
-  { name: 'Set', value: 105000 },
-];
+import { supabase } from '@/lib/supabase';
 
-const conversionData = [
-  { name: 'Visitantes', value: 15400 },
-  { name: 'Leads', value: 4200 },
-  { name: 'Qualificados', value: 1850 },
-  { name: 'Negociações', value: 890 },
-  { name: 'Ganhos', value: 320 },
-];
-
-const sourceData = [
-  { name: 'Instagram', value: 45 },
-  { name: 'Google Ads', value: 30 },
-  { name: 'Orgânico', value: 15 },
-  { name: 'Referência', value: 10 },
-];
-
-const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#14b8a6'];
+const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#14b8a6', '#f59e0b', '#10b981'];
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -69,9 +43,9 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         <p className={styles.customTooltipLabel}>{label}</p>
         {payload.map((entry: any, index: number) => (
           <p key={index} className={styles.customTooltipItem} style={{ color: entry.color || '#fff' }}>
-            {entry.name}: {entry.name === 'value' || entry.name === 'Receita' 
+            {entry.name === 'Receita' || entry.name === 'Receita Acumulada'
               ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(entry.value)
-              : entry.value}
+              : `${entry.name}: ${entry.value}`}
           </p>
         ))}
       </div>
@@ -82,6 +56,93 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export default function ReportsPage() {
   const [period, setPeriod] = useState('Mensal');
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalRevenue: 0,
+    newLeads: 0,
+    conversionRate: 0,
+    avgCycle: 0,
+    revenueHistory: [] as any[],
+    funnel: [] as any[],
+    sources: [] as any[]
+  });
+
+  React.useEffect(() => {
+    const fetchData = async () => {
+      if (!supabase) return;
+      setLoading(true);
+
+      try {
+        const { data: leads, error } = await supabase.from('leads').select('*');
+        if (error) throw error;
+
+        // 1. Process Revenue History (by Month)
+        const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        const currentYear = new Date().getFullYear();
+        
+        const revMap = new Map();
+        let totalRevenue = 0;
+        let wonLeads = 0;
+
+        leads?.forEach(l => {
+          const date = new Date(l.created_at);
+          if (date.getFullYear() === currentYear) {
+            const m = months[date.getMonth()];
+            const val = parseFloat(l.value || 0);
+            if (l.stage_id === 'ganho') {
+              revMap.set(m, (revMap.get(m) || 0) + val);
+              totalRevenue += val;
+              wonLeads++;
+            }
+          }
+        });
+
+        const revenueHistory = months.map(m => ({ name: m, value: revMap.get(m) || 0 }));
+
+        // 2. Funnel Data
+        const stageMap: Record<string, number> = {};
+        leads?.forEach(l => {
+          stageMap[l.stage_id] = (stageMap[l.stage_id] || 0) + 1;
+        });
+
+        // Map technical IDs to Pretty Names for chart
+        const funnel = [
+          { name: 'Entrada', value: leads?.length || 0 },
+          { name: 'Qualificados', value: (stageMap['contato'] || 0) + (stageMap['proposta'] || 0) + (stageMap['negociacao'] || 0) + (stageMap['ganho'] || 0) },
+          { name: 'Em Negociação', value: (stageMap['negociacao'] || 0) + (stageMap['ganho'] || 0) },
+          { name: 'Fechados/Ganhos', value: stageMap['ganho'] || 0 },
+        ];
+
+        // 3. Source Data
+        const srcMap: Record<string, number> = {};
+        leads?.forEach(l => {
+          const s = l.source || 'Outros';
+          srcMap[s] = (srcMap[s] || 0) + 1;
+        });
+        const sources = Object.entries(srcMap).map(([name, value]) => ({ name, value }));
+
+        // 4. Summaries
+        const conversionRate = leads?.length ? (wonLeads / leads.length) * 100 : 0;
+        
+        setStats({
+          totalRevenue,
+          newLeads: leads?.length || 0,
+          conversionRate,
+          avgCycle: 12.5, // Placeholder for actual calculation
+          revenueHistory,
+          funnel,
+          sources
+        });
+      } catch (err) {
+        console.error('Error fetching stats:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -123,6 +184,20 @@ export default function ReportsPage() {
         </div>
       </div>
 
+      <AnimatePresence>
+        {loading && (
+          <motion.div 
+            className={styles.loadingOverlay}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <Zap className={styles.spin} size={48} />
+            <p>Sincronizando com Banco de Dados...</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <motion.div 
         className={styles.kpiGrid}
         variants={containerVariants}
@@ -135,22 +210,24 @@ export default function ReportsPage() {
             <div className={styles.kpiIcon}><DollarSign size={20} /></div>
           </div>
           <div>
-            <h3 className={styles.kpiValue}>R$ 621.000</h3>
+            <h3 className={styles.kpiValue}>
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(stats.totalRevenue)}
+            </h3>
             <div className={`${styles.kpiTrend} ${styles.trendPositive}`}>
-              <ArrowUpRight size={14} /> +24% que mês anterior
+              <ArrowUpRight size={14} /> Dados reais da base
             </div>
           </div>
         </motion.div>
 
         <motion.div className={styles.kpiCard} variants={itemVariants}>
           <div className={styles.kpiHeader}>
-            <p className={styles.kpiTitle}>Novos Leads</p>
+            <p className={styles.kpiTitle}>Leads Totais</p>
             <div className={styles.kpiIcon}><Users size={20} /></div>
           </div>
           <div>
-            <h3 className={styles.kpiValue}>4.200</h3>
+            <h3 className={styles.kpiValue}>{stats.newLeads}</h3>
             <div className={`${styles.kpiTrend} ${styles.trendPositive}`}>
-              <ArrowUpRight size={14} /> +12% que mês anterior
+              <ArrowUpRight size={14} /> Captados no período
             </div>
           </div>
         </motion.div>
@@ -161,22 +238,22 @@ export default function ReportsPage() {
             <div className={styles.kpiIcon}><Target size={20} /></div>
           </div>
           <div>
-            <h3 className={styles.kpiValue}>7.6%</h3>
-            <div className={`${styles.kpiTrend} ${styles.trendNegative}`}>
-              <ArrowDownRight size={14} /> -1.2% que mês anterior
+            <h3 className={styles.kpiValue}>{stats.conversionRate.toFixed(1)}%</h3>
+            <div className={`${styles.kpiTrend} ${styles.trendPositive}`}>
+              <ArrowUpRight size={14} /> Leads que viraram Ganhos
             </div>
           </div>
         </motion.div>
 
         <motion.div className={styles.kpiCard} variants={itemVariants}>
           <div className={styles.kpiHeader}>
-            <p className={styles.kpiTitle}>Tempo de Ciclo (Dias)</p>
-            <div className={styles.kpiIcon}><Zap size={20} /></div>
+            <p className={styles.kpiTitle}>Vendas Confirmadas</p>
+            <div className={styles.kpiIcon}><Briefcase size={20} /></div>
           </div>
           <div>
-            <h3 className={styles.kpiValue}>14.5</h3>
+            <h3 className={styles.kpiValue}>{stats.funnel.find(f => f.name === 'Fechados/Ganhos')?.value || 0}</h3>
             <div className={`${styles.kpiTrend} ${styles.trendPositive}`}>
-              <ArrowDownRight size={14} /> -2.4 dias que mês anterior
+              <ArrowUpRight size={14} /> Negócios fechados
             </div>
           </div>
         </motion.div>
@@ -191,11 +268,11 @@ export default function ReportsPage() {
         <div className={styles.chartCard} style={{ gridColumn: '1 / -1' }}>
           <div className={styles.chartHeader}>
             <h2 className={styles.chartTitle}>Evolução de Receita</h2>
-            <p className={styles.chartSubtitle}>Crescimento financeiro ao longo do período selecionado</p>
+            <p className={styles.chartSubtitle}>Crescimento financeiro real do ano de {new Date().getFullYear()}</p>
           </div>
           <div className={styles.chartBody}>
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={revenueData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+              <AreaChart data={stats.revenueHistory} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8}/>
@@ -221,18 +298,18 @@ export default function ReportsPage() {
       >
         <div className={styles.chartCard}>
           <div className={styles.chartHeader}>
-            <h2 className={styles.chartTitle}>Funil de Vendas</h2>
-            <p className={styles.chartSubtitle}>Taxa de retenção etapa por etapa</p>
+            <h2 className={styles.chartTitle}>Funil de Vendas (Real)</h2>
+            <p className={styles.chartSubtitle}>Volume de leads por progressão de etapa</p>
           </div>
           <div className={styles.chartBody}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={conversionData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+              <BarChart data={stats.funnel} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={true} vertical={false} />
                 <XAxis type="number" stroke="#64748b" tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} />
-                <YAxis dataKey="name" type="category" stroke="#64748b" tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} />
+                <YAxis dataKey="name" type="category" stroke="#64748b" tick={{ fill: '#64748b' }} axisLine={false} tickLine={false} width={100} />
                 <Tooltip content={<CustomTooltip />} />
                 <Bar dataKey="value" fill="#8b5cf6" radius={[0, 4, 4, 0]}>
-                  {conversionData.map((entry, index) => (
+                  {stats.funnel.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Bar>
@@ -244,22 +321,22 @@ export default function ReportsPage() {
         <div className={styles.chartCard}>
           <div className={styles.chartHeader}>
             <h2 className={styles.chartTitle}>Origem de Aquisição</h2>
-            <p className={styles.chartSubtitle}>Distribuição de canais de captação de leads</p>
+            <p className={styles.chartSubtitle}>Distribuição real por canal de origem</p>
           </div>
           <div className={styles.chartBody}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={sourceData}
+                  data={stats.sources.length > 0 ? stats.sources : [{ name: 'Sem Dados', value: 1 }]}
                   cx="50%"
                   cy="50%"
-                  innerRadius={80}
-                  outerRadius={120}
+                  innerRadius={60}
+                  outerRadius={100}
                   paddingAngle={5}
                   dataKey="value"
                   stroke="none"
                 >
-                  {sourceData.map((entry, index) => (
+                  {stats.sources.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>

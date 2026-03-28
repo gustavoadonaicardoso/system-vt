@@ -40,34 +40,16 @@ const PRESET_ICONS_MAP: Record<string, any> = {
 
 import styles from './page.module.css';
 
+import { useLeads } from '@/context/LeadContext';
+import { supabase } from '@/lib/supabase';
+
 const initialKpis = [
-  { label: 'Receita Total', value: 'R$ 124.500', trend: '+12.5%', icon: DollarSign, color: '#3b82f6' },
-  { label: 'Leads Ativos', value: '1.280', trend: '+8.2%', icon: Users, color: '#8b5cf6' },
-  { label: 'Tempo Médio Espera', value: '4m 12s', trend: '-30s', icon: Clock, color: '#f59e0b' },
-  { label: 'Tempo Médio Atendimento', value: '18m 45s', trend: '+1m', icon: Activity, color: '#10b981' },
+  { label: 'Receita Total', value: 'R$ 0,00', trend: '+0%', icon: DollarSign, color: '#3b82f6' },
+  { label: 'Leads Ativos', value: '0', trend: '+0%', icon: Users, color: '#8b5cf6' },
+  { label: 'Ticket Médio', value: 'R$ 0,00', trend: '-', icon: Award, color: '#10b981' },
+  { label: 'Conversão', value: '0%', trend: '-', icon: Activity, color: '#f59e0b' },
 ];
 
-const periodData: Record<string, typeof initialKpis> = {
-  today: initialKpis,
-  yesterday: [
-    { label: 'Receita Total', value: 'R$ 98.200', trend: '+5.1%', icon: DollarSign, color: '#3b82f6' },
-    { label: 'Leads Ativos', value: '1.150', trend: '+4.2%', icon: Users, color: '#8b5cf6' },
-    { label: 'Tempo Médio Espera', value: '5m 05s', trend: '-15s', icon: Clock, color: '#f59e0b' },
-    { label: 'Tempo Médio Atendimento', value: '19m 20s', trend: '+2m', icon: Activity, color: '#10b981' },
-  ],
-  '7days': [
-    { label: 'Receita Total', value: 'R$ 845.000', trend: '+15.8%', icon: DollarSign, color: '#3b82f6' },
-    { label: 'Leads Ativos', value: '8.450', trend: '+12.5%', icon: Users, color: '#8b5cf6' },
-    { label: 'Tempo Médio Espera', value: '4m 45s', trend: '-45s', icon: Clock, color: '#f59e0b' },
-    { label: 'Tempo Médio Atendimento', value: '17m 30s', trend: '+30s', icon: Activity, color: '#10b981' },
-  ],
-  '30days': [
-    { label: 'Receita Total', value: 'R$ 3.840.000', trend: '+22.4%', icon: DollarSign, color: '#3b82f6' },
-    { label: 'Leads Ativos', value: '32.100', trend: '+18.1%', icon: Users, color: '#8b5cf6' },
-    { label: 'Tempo Médio Espera', value: '4m 30s', trend: '-1m', icon: Clock, color: '#f59e0b' },
-    { label: 'Tempo Médio Atendimento', value: '18m 05s', trend: '+1m', icon: Activity, color: '#10b981' },
-  ]
-};
 
 
 const activities = [
@@ -168,41 +150,93 @@ const periodActivities: Record<string, typeof activities> = {
 };
 
 export default function Dashboard() {
+  const { leads, dbStatus } = useLeads();
   const [isModalOpen, setIsModalOpen] = React.useState(false);
-  const [selectedEvent, setSelectedEvent] = React.useState<typeof eventsBanners[0] | null>(null);
-  const [banners, setBanners] = React.useState(eventsBanners);
+  const [selectedEvent, setSelectedEvent] = React.useState<any>(null);
+  const [banners, setBanners] = React.useState<any[]>([]);
   const [formSubmitted, setFormSubmitted] = React.useState(false);
   
   // Filter states
   const [currentFilter, setCurrentFilter] = React.useState('today');
   const [kpis, setKpis] = React.useState(initialKpis);
-  const [teamStats, setTeamStats] = React.useState(userData);
-  const [funnel, setFunnel] = React.useState(funnelData);
+  const [teamStats, setTeamStats] = React.useState<any[]>([]);
+  const [funnel, setFunnel] = React.useState<any[]>([]);
   const [recentActivities, setRecentActivities] = React.useState(activities);
   const [isFiltering, setIsFiltering] = React.useState(false);
 
-  // Sync with localStorage to allow admin edits to persist
+  // Sync with localStorage + DB
   React.useEffect(() => {
-    const savedBanners = localStorage.getItem('vortice_banners');
-    if (savedBanners) setBanners(JSON.parse(savedBanners));
-  }, []);
+    const fetchBanners = async () => {
+      if (supabase) {
+        const { data } = await supabase.from('platform_banners').select('*');
+        if (data && data.length > 0) {
+           setBanners(data);
+           return;
+        }
+      }
+      const savedBanners = localStorage.getItem('vortice_banners');
+      if (savedBanners) setBanners(JSON.parse(savedBanners));
+    };
 
-  // Automatic filtration when period changes
+    const fetchTeam = async () => {
+      if (supabase) {
+        const { data } = await supabase.from('profiles').select('*');
+        if (data) setTeamStats(data);
+      }
+    };
+
+    fetchBanners();
+    fetchTeam();
+  }, [dbStatus]);
+
+  // Sync Dashboard Numbers with real Leads
   React.useEffect(() => {
-    handleFilter();
-  }, [currentFilter]);
+    setIsFiltering(true);
+    
+    setTimeout(() => {
+      const wonLeads = leads.filter(l => l.pipelineStage === 'ganho');
+      const totalRevenue = wonLeads.reduce((acc, l) => acc + parseFloat((l.value || '0').replace(/[^0-9,-]+/g,"").replace(",",".") || "0"), 0);
+      const ticketMedio = wonLeads.length > 0 ? totalRevenue / wonLeads.length : 0;
+      const conversion = leads.length > 0 ? (wonLeads.length / leads.length) * 100 : 0;
+
+      const newKpis = [
+        { 
+          label: 'Receita Total', 
+          value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalRevenue), 
+          trend: '+Base Real', icon: DollarSign, color: '#3b82f6' 
+        },
+        { label: 'Leads Ativos', value: leads.length.toString(), trend: 'Ativos', icon: Users, color: '#8b5cf6' },
+        { 
+          label: 'Ticket Médio', 
+          value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(ticketMedio), 
+          trend: 'Geral', icon: Award, color: '#10b981' 
+        },
+        { label: 'Conversão', value: `${conversion.toFixed(1)}%`, trend: 'Ganhos/Total', icon: Activity, color: '#f59e0b' },
+      ];
+
+      setKpis(newKpis);
+
+      // Real Funnel State
+      const stageCounts: Record<string, number> = {};
+      leads.forEach(l => { stageCounts[l.pipelineStage] = (stageCounts[l.pipelineStage] || 0) + 1; });
+      
+      const newFunnel = [
+        { label: 'Leads', value: leads.length, icon: Users, color: '#3b82f6' },
+        { label: 'Qualificados', value: (stageCounts['contato'] || 0) + (stageCounts['proposta'] || 0) + (stageCounts['negociacao'] || 0) + (stageCounts['ganho'] || 0), icon: UserCheck, color: '#8b5cf6' },
+        { label: 'Proposta', value: (stageCounts['proposta'] || 0) + (stageCounts['negociacao'] || 0) + (stageCounts['ganho'] || 0), icon: MessageCircle, color: '#f59e0b' },
+        { label: 'Fechados', value: stageCounts['ganho'] || 0, icon: DollarSign, color: '#10b981' },
+      ];
+      setFunnel(newFunnel);
+
+      setIsFiltering(false);
+    }, 400);
+  }, [leads, currentFilter]);
 
   const handleFilter = () => {
     setIsFiltering(true);
-    // Real-time synchronization of all dashboard modules
-    setTimeout(() => {
-      setKpis(periodData[currentFilter] || initialKpis);
-      setTeamStats(periodTeamData[currentFilter] || userData);
-      setFunnel(periodFunnelData[currentFilter] || funnelData);
-      setRecentActivities(periodActivities[currentFilter] || activities);
-      setIsFiltering(false);
-    }, 600);
+    setTimeout(() => setIsFiltering(false), 600);
   };
+
 
   const openModal = (event: typeof eventsBanners[0]) => {
     setSelectedEvent(event);
@@ -457,7 +491,7 @@ export default function Dashboard() {
                   <td>
                     <div className={styles.userNameColumn}>
                       <div className={styles.userAvatar}>
-                        {user.name.split(' ').map(n => n[0]).join('')}
+                        {user.name.split(' ').map((n: string) => n[0]).join('')}
                       </div>
                       {user.name}
                     </div>

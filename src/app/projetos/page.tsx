@@ -5,6 +5,8 @@ import { motion } from 'framer-motion';
 import { ClipboardList, Target, Target as GoalIcon, ShieldCheck } from 'lucide-react';
 import styles from './projetos.module.css';
 
+import { supabase } from '@/lib/supabase';
+
 interface ProjectData {
   id: string;
   clientName: string;
@@ -20,15 +22,34 @@ const DEFAULT_PROJECTS: ProjectData[] = [];
 
 export default function ProjetosPage() {
   const [projects, setProjects] = useState<ProjectData[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const saved = localStorage.getItem('vortice_projetos_data');
-    if (saved) {
-      setProjects(JSON.parse(saved));
-    } else {
-      setProjects(DEFAULT_PROJECTS);
-    }
+    fetchProjects();
   }, []);
+
+  const fetchProjects = async () => {
+    if (!supabase) return;
+    setLoading(true);
+    const { data } = await supabase.from('action_plans').select('*').order('created_at');
+    if (data && data.length > 0) {
+      setProjects(data.map(d => ({
+        id: d.id,
+        clientName: d.client_name,
+        projectName: d.project_name,
+        status: d.status,
+        strategies: d.strategies,
+        weeklyGoals: d.weekly_goals,
+        commercialPoints: d.commercial_points,
+        color: d.color_gradient,
+      })));
+    } else {
+      const saved = localStorage.getItem('vortice_projetos_data');
+      if (saved) setProjects(JSON.parse(saved));
+    }
+    setLoading(false);
+  };
+
 
   return (
     <div className={styles.container}>

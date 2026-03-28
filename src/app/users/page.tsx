@@ -20,7 +20,9 @@ import {
 } from 'lucide-react';
 import styles from './users.module.css';
 
-// Mock data
+import { supabase } from '@/lib/supabase';
+
+// Real Data Types
 type Role = 'ADMIN' | 'MANAGER' | 'SELLER';
 type Status = 'ACTIVE' | 'INACTIVE';
 
@@ -32,16 +34,6 @@ interface Permissions {
   automations: { view: boolean; manage: boolean };
   integrations: { view: boolean; manage: boolean };
   team: { view: boolean; manage: boolean };
-}
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: Role;
-  status: Status;
-  createdAt: string;
-  permissions: Permissions;
 }
 
 const DEFAULT_PERMISSIONS: Permissions = {
@@ -64,40 +56,52 @@ const SELLER_PERMISSIONS: Permissions = {
   team: { view: false, manage: false },
 };
 
-const MOCK_USERS: User[] = [
-  { id: '1', name: 'Gustavo Admin', email: 'gustavo@vortice.tech', role: 'ADMIN', status: 'ACTIVE', createdAt: '2025-10-15', permissions: DEFAULT_PERMISSIONS },
-  { id: '2', name: 'Rafael Silva', email: 'rafael.vendas@vortice.tech', role: 'MANAGER', status: 'ACTIVE', createdAt: '2026-01-10', permissions: DEFAULT_PERMISSIONS },
-  { id: '3', name: 'Ana Souza', email: 'ana.s@vortice.tech', role: 'SELLER', status: 'ACTIVE', createdAt: '2026-02-05', permissions: SELLER_PERMISSIONS },
-  { id: '4', name: 'Carlos Mendes', email: 'carlos@vortice.tech', role: 'SELLER', status: 'INACTIVE', createdAt: '2026-02-20', permissions: SELLER_PERMISSIONS },
-];
-
 export default function UsersPage() {
-  const [users, setUsers] = useState<User[]>(MOCK_USERS);
-  const [selectedUserId, setSelectedUserId] = useState<string>(users[0].id);
-  const [activeTab, setActiveTab] = useState<'info' | 'permissions'>('permissions');
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'info' | 'permissions'>('info');
   const [isEditing, setIsEditing] = useState(false);
 
-  // Derive selection
-  const selectedUser = users.find(u => u.id === selectedUserId) || users[0];
-
   // Local form states
-  const [name, setName] = useState(selectedUser.name);
-  const [email, setEmail] = useState(selectedUser.email);
-  const [role, setRole] = useState<Role>(selectedUser.role);
-  const [status, setStatus] = useState<Status>(selectedUser.status);
-  const [userPermissions, setUserPermissions] = useState<Permissions>(selectedUser.permissions);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState<Role>('SELLER');
+  const [status, setStatus] = useState<Status>('ACTIVE');
+  const [userPermissions, setUserPermissions] = useState<any>(null);
 
-  // Effect to sync local state with selection
   React.useEffect(() => {
-    setName(selectedUser.name);
-    setEmail(selectedUser.email);
-    setRole(selectedUser.role);
-    setStatus(selectedUser.status);
-    setUserPermissions(selectedUser.permissions);
-  }, [selectedUserId]);
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    if (!supabase) return;
+    setLoading(true);
+    const { data, error } = await supabase.from('profiles').select('*').order('name');
+    if (data) {
+      setUsers(data);
+      if (data.length > 0 && !selectedUserId) {
+        setSelectedUserId(data[0].id);
+      }
+    }
+    setLoading(false);
+  };
+
+  const selectedUser = users.find(u => u.id === selectedUserId);
+
+  React.useEffect(() => {
+    if (selectedUser) {
+      setName(selectedUser.name);
+      setEmail(selectedUser.email);
+      setRole(selectedUser.role as Role);
+      setStatus((selectedUser.status || 'ACTIVE') as Status);
+      setUserPermissions(selectedUser.permissions || SELLER_PERMISSIONS);
+      setIsEditing(false);
+    }
+  }, [selectedUserId, users]);
 
   const togglePermission = (category: keyof Permissions, field: string) => {
-    setUserPermissions(prev => ({
+    setUserPermissions((prev: any) => ({
       ...prev,
       [category]: {
         ...(prev[category] as any),
@@ -107,25 +111,27 @@ export default function UsersPage() {
     setIsEditing(true);
   };
 
-  const saveChanges = () => {
-    if (!name || !email) return alert('Preencha os campos obrigatórios.');
-    setUsers(users.map(u => u.id === selectedUserId ? { ...u, name, email, role, status, permissions: userPermissions } : u));
-    setIsEditing(false);
+  const saveChanges = async () => {
+    if (!name || !email || !selectedUserId || !supabase) return;
+    
+    setLoading(true);
+    const { error } = await supabase.from('profiles').update({
+      name,
+      email,
+      role,
+      status,
+      permissions: userPermissions
+    }).eq('id', selectedUserId);
+
+    if (!error) {
+      await fetchUsers();
+      setIsEditing(false);
+    }
+    setLoading(false);
   };
 
   const createNewMember = () => {
-    const newUser: User = {
-      id: Date.now().toString(),
-      name: 'Novo Colaborador',
-      email: 'novo@vortice.tech',
-      role: 'SELLER',
-      status: 'ACTIVE',
-      permissions: SELLER_PERMISSIONS,
-      createdAt: new Date().toISOString().split('T')[0]
-    };
-    setUsers([...users, newUser]);
-    setSelectedUserId(newUser.id);
-    setIsEditing(true);
+     alert("Novos membros devem ser convidados via E-mail / Auth.");
   };
 
   return (
@@ -290,7 +296,7 @@ export default function UsersPage() {
                             <h4>{cat.name}</h4>
                           </div>
                           <div className={styles.permissionSwitchList}>
-                            {Object.entries(items).map(([field, value]) => (
+                            {Object.entries(items as any).map(([field, value]) => (
                                <div key={field} className={styles.switchRow}>
                                  <label className={styles.cyberLabel}>
                                    <span>{fieldMap[field] || field}</span>

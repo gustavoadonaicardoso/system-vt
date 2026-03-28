@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import styles from './adminProjetos.module.css';
 
+import { supabase } from '@/lib/supabase';
+
 export interface ProjectData {
   id: string;
   clientName: string;
@@ -35,19 +37,58 @@ export default function AdminProjetos() {
   const [projects, setProjects] = useState<ProjectData[]>([]);
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const saved = localStorage.getItem('vortice_projetos_data');
-    if (saved) setProjects(JSON.parse(saved));
-    else setProjects(DEFAULT_PROJECTS);
+    fetchProjects();
   }, []);
 
-  const saveToDisk = (newProjects: ProjectData[]) => {
+  const fetchProjects = async () => {
+    if (!supabase) return;
+    setLoading(true);
+    const { data } = await supabase.from('action_plans').select('*').order('created_at');
+    if (data && data.length > 0) {
+      setProjects(data.map(d => ({
+        id: d.id,
+        clientName: d.client_name,
+        projectName: d.project_name,
+        status: d.status as any,
+        strategies: d.strategies,
+        weeklyGoals: d.weekly_goals,
+        commercialPoints: d.commercial_points,
+        color: d.color_gradient,
+      })));
+    } else {
+      const saved = localStorage.getItem('vortice_projetos_data');
+      if (saved) setProjects(JSON.parse(saved));
+    }
+    setLoading(false);
+  };
+
+  const saveToDisk = async (newProjects: ProjectData[]) => {
     setProjects(newProjects);
+    
+    if (supabase) {
+      await supabase.from('action_plans').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+      
+      const dbRows = newProjects.map(p => ({
+        client_name: p.clientName,
+        project_name: p.projectName,
+        status: p.status,
+        strategies: p.strategies,
+        weekly_goals: p.weeklyGoals,
+        commercial_points: p.commercialPoints,
+        color_gradient: p.color
+      }));
+
+      await supabase.from('action_plans').insert(dbRows);
+    }
+
     localStorage.setItem('vortice_projetos_data', JSON.stringify(newProjects));
     setSuccess(true);
     setTimeout(() => setSuccess(false), 2000);
   };
+
 
   const updateField = (idx: number, field: keyof ProjectData, val: string) => {
     const next = [...projects];
