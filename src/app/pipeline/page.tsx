@@ -235,7 +235,7 @@ export default function Pipeline() {
                   />
                   <input 
                     type="text" 
-                    value={stage.name} 
+                    value={stage.name || ''} 
                     onChange={(e) => updateStageConfig(stage.id, { name: e.target.value })}
                     className={styles.stageInput}
                     placeholder="Nome da Etapa"
@@ -470,7 +470,7 @@ export default function Pipeline() {
                    {isEditing ? (
                      <input 
                        className={styles.editTitleInput}
-                       value={editForm.name} 
+                       value={editForm?.name || ''} 
                        onChange={e => setEditForm({...editForm, name: e.target.value})}
                      />
                    ) : (
@@ -508,7 +508,7 @@ export default function Pipeline() {
                     <div className={styles.infoContent}>
                       <label>E-mail</label>
                       {isEditing ? (
-                        <input className={styles.editInput} value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})} />
+                        <input className={styles.editInput} value={editForm?.email || ''} onChange={e => setEditForm({...editForm, email: e.target.value})} />
                       ) : (
                         <span>{selectedLead.email || 'Não informado'}</span>
                       )}
@@ -520,7 +520,7 @@ export default function Pipeline() {
                     <div className={styles.infoContent}>
                       <label>Telefone</label>
                       {isEditing ? (
-                        <input className={styles.editInput} value={editForm.phone} onChange={e => setEditForm({...editForm, phone: e.target.value})} />
+                        <input className={styles.editInput} value={editForm?.phone || ''} onChange={e => setEditForm({...editForm, phone: e.target.value})} />
                       ) : (
                         <span>{selectedLead.phone || 'Não informado'}</span>
                       )}
@@ -532,7 +532,7 @@ export default function Pipeline() {
                     <div className={styles.infoContent}>
                       <label>CPF / CNPJ</label>
                       {isEditing ? (
-                        <input className={styles.editInput} value={editForm.cpfCnpj} onChange={e => setEditForm({...editForm, cpfCnpj: e.target.value})} />
+                        <input className={styles.editInput} value={editForm?.cpfCnpj || ''} onChange={e => setEditForm({...editForm, cpfCnpj: e.target.value})} />
                       ) : (
                         <span>{selectedLead.cpfCnpj || 'Não informado'}</span>
                       )}
@@ -544,7 +544,7 @@ export default function Pipeline() {
                     <div className={styles.infoContent}>
                       <label>Valor Estimado</label>
                       {isEditing ? (
-                        <input className={styles.editInput} value={editForm.value} onChange={e => setEditForm({...editForm, value: e.target.value})} />
+                        <input className={styles.editInput} value={editForm?.value || ''} onChange={e => setEditForm({...editForm, value: e.target.value})} />
                       ) : (
                         <span className={styles.importantValue}>{selectedLead.value || 'R$ 0,00'}</span>
                       )}

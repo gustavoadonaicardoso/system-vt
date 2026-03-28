@@ -23,25 +23,29 @@ import styles from './Sidebar.module.css';
 import { useSidebar } from '@/components/SidebarProvider';
 
 
-const navItems = [
-  { name: 'Início', icon: LayoutDashboard, path: '/' },
-  { name: 'Projetos', icon: Briefcase, path: '/projetos' },
-  { name: 'Pipeline', icon: Kanban, path: '/pipeline' },
-  { name: 'Leads', icon: Users, path: '/leads' },
-  { name: 'Relatórios', icon: BarChart3, path: '/relatorios' },
-  
-  { name: 'Equipe', icon: UserCog, path: '/users' },
-  { name: 'Automações', icon: Zap, path: '/automations' },
-  { name: 'Integrações', icon: Blocks, path: '/integrations' },
-  { name: 'Mensagens', icon: MessageSquare, path: '/messages' },
-  { name: 'Central de Ajuda', icon: LifeBuoy, path: '/help' },
-  { name: 'Configurações', icon: Settings, path: '/settings' },
-];
-
-
 const Sidebar = () => {
   const pathname = usePathname();
   const { isCollapsed, toggleSidebar, isMobileOpen, closeMobileMenu } = useSidebar();
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const navItems = React.useMemo(() => [
+    { name: 'Início', icon: LayoutDashboard, path: '/' },
+    { name: 'Projetos', icon: Briefcase, path: '/projetos' },
+    { name: 'Mensagens', icon: MessageSquare, path: '/messages' },
+    { name: 'Pipeline', icon: Kanban, path: '/pipeline' },
+    { name: 'Leads', icon: Users, path: '/leads' },
+    { name: 'Relatórios', icon: BarChart3, path: '/relatorios' },
+    
+    { name: 'Equipe', icon: UserCog, path: '/users' },
+    { name: 'Automações', icon: Zap, path: '/automations' },
+    { name: 'Integrações', icon: Blocks, path: '/integrations' },
+    { name: 'Central de Ajuda', icon: LifeBuoy, path: '/help' },
+    { name: 'Configurações', icon: Settings, path: '/settings' },
+  ], []);
 
   const handleLinkClick = () => {
     if (window.innerWidth <= 768) {
@@ -74,7 +78,7 @@ const Sidebar = () => {
         </div>
 
         <nav className={styles.nav}>
-          {navItems.map((item) => (
+          {mounted && navItems.map((item) => (
             <Link 
               key={item.path} 
               href={item.path}
@@ -87,23 +91,27 @@ const Sidebar = () => {
             </Link>
           ))}
 
-          {/* Admin separator */}
-          <div className={styles.navSeparator}>{!isCollapsed && <span>Admin</span>}</div>
+          {mounted && (
+            <>
+              {/* Admin separator */}
+              <div className={styles.navSeparator}>{!isCollapsed && <span>Admin</span>}</div>
 
-          <Link
-            href="/master"
-            className={`${styles.navItem} ${styles.navItemMaster} ${pathname === '/master' ? styles.navItemActive : ''}`}
-            title={isCollapsed ? 'Painel Master' : ''}
-            onClick={handleLinkClick}
-          >
-            <ShieldCheck size={20} />
-            {!isCollapsed && (
-              <span className={styles.masterLabel}>
-                Painel Master
-                <span className={styles.adminBadge}>ADMIN</span>
-              </span>
-            )}
-          </Link>
+              <Link
+                href="/master"
+                className={`${styles.navItem} ${styles.navItemMaster} ${pathname === '/master' ? styles.navItemActive : ''}`}
+                title={isCollapsed ? 'Painel Master' : ''}
+                onClick={handleLinkClick}
+              >
+                <ShieldCheck size={20} />
+                {!isCollapsed && (
+                  <span className={styles.masterLabel}>
+                    Painel Master
+                    <span className={styles.adminBadge}>ADMIN</span>
+                  </span>
+                )}
+              </Link>
+            </>
+          )}
         </nav>
 
         <div className={styles.sidebarFooter}>

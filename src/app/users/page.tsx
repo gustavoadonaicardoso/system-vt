@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, 
   Search, 
@@ -62,6 +63,13 @@ export default function UsersPage() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'info' | 'permissions'>('info');
   const [isEditing, setIsEditing] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+  // New user form
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserRole, setNewUserRole] = useState<Role>('SELLER');
 
   // Local form states
   const [name, setName] = useState('');
@@ -130,8 +138,37 @@ export default function UsersPage() {
     setLoading(false);
   };
 
+  const handleCreateMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUserName || !newUserEmail || !newUserPassword || !supabase) return;
+
+    setLoading(true);
+    const perms = newUserRole === 'ADMIN' ? DEFAULT_PERMISSIONS : SELLER_PERMISSIONS;
+    
+    const { data, error } = await supabase.from('profiles').insert([{
+      name: newUserName,
+      email: newUserEmail,
+      password: newUserPassword,
+      role: newUserRole,
+      status: 'ACTIVE',
+      permissions: perms
+    }]).select();
+
+    if (!error && data) {
+      await fetchUsers();
+      setIsAddModalOpen(false);
+      setNewUserName('');
+      setNewUserEmail('');
+      setNewUserPassword('');
+      setNewUserRole('SELLER');
+    } else {
+      alert("Erro ao criar membro: " + (error?.message || "Email já cadastrado?"));
+    }
+    setLoading(false);
+  };
+
   const createNewMember = () => {
-     alert("Novos membros devem ser convidados via E-mail / Auth.");
+     setIsAddModalOpen(true);
   };
 
   return (
@@ -322,6 +359,85 @@ export default function UsersPage() {
           )}
         </main>
       </div>
+      {/* Modal Novo Membro */}
+      <AnimatePresence>
+        {isAddModalOpen && (
+          <div className={styles.modalOverlay} onClick={() => setIsAddModalOpen(false)}>
+            <motion.div 
+              className={styles.modalContent}
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className={styles.modalHeader}>
+                <h3>Novo Membro da Equipe</h3>
+                <button className={styles.closeBtn} onClick={() => setIsAddModalOpen(false)}>
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateMember} className={styles.addForm}>
+                <div className={styles.formGroup}>
+                  <label>Nome Completo</label>
+                  <input 
+                    className={styles.input} 
+                    placeholder="Ex: João Silva" 
+                    value={newUserName}
+                    onChange={e => setNewUserName(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className={styles.formGroup}>
+                  <label>E-mail Corporativo</label>
+                  <input 
+                    type="email"
+                    className={styles.input} 
+                    placeholder="joao@empresa.com" 
+                    value={newUserEmail}
+                    onChange={e => setNewUserEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className={styles.formGroup}>
+                  <label>Cargo / Função</label>
+                  <select 
+                    className={styles.select} 
+                    value={newUserRole}
+                    onChange={e => setNewUserRole(e.target.value as Role)}
+                  >
+                    <option value="ADMIN">Administrador</option>
+                    <option value="MANAGER">Gerente</option>
+                    <option value="SELLER">Vendedor</option>
+                  </select>
+                </div>
+
+                <div className={styles.formGroup}>
+                  <label>Senha de Acesso</label>
+                  <input 
+                    type="password"
+                    className={styles.input} 
+                    placeholder="••••••••" 
+                    value={newUserPassword}
+                    onChange={e => setNewUserPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                </div>
+                
+                <div className={styles.modalActions}>
+                  <button type="button" className={styles.cancelBtn} onClick={() => setIsAddModalOpen(false)}>
+                    Cancelar
+                  </button>
+                  <button type="submit" className={styles.submitBtn} disabled={loading}>
+                    {loading ? 'Salvando...' : 'Criar Membro'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

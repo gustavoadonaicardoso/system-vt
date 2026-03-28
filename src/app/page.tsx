@@ -150,19 +150,33 @@ const periodActivities: Record<string, typeof activities> = {
 };
 
 export default function Dashboard() {
-  const { leads, dbStatus } = useLeads();
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [selectedEvent, setSelectedEvent] = React.useState<any>(null);
   const [banners, setBanners] = React.useState<any[]>([]);
   const [formSubmitted, setFormSubmitted] = React.useState(false);
-  
-  // Filter states
   const [currentFilter, setCurrentFilter] = React.useState('today');
   const [kpis, setKpis] = React.useState(initialKpis);
   const [teamStats, setTeamStats] = React.useState<any[]>([]);
   const [funnel, setFunnel] = React.useState<any[]>([]);
   const [recentActivities, setRecentActivities] = React.useState(activities);
   const [isFiltering, setIsFiltering] = React.useState(false);
+  
+  const { leads, dbStatus, refreshDatabase } = useLeads();
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+
+  const handleRefresh = React.useCallback(async () => {
+    setIsRefreshing(true);
+    await refreshDatabase();
+    setTimeout(() => setIsRefreshing(false), 500);
+  }, [refreshDatabase]);
+
+  // Auto-refresh 30s
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      handleRefresh();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [handleRefresh]);
 
   // Sync with localStorage + DB
   React.useEffect(() => {
@@ -195,7 +209,10 @@ export default function Dashboard() {
     
     setTimeout(() => {
       const wonLeads = leads.filter(l => l.pipelineStage === 'ganho');
-      const totalRevenue = wonLeads.reduce((acc, l) => acc + parseFloat((l.value || '0').replace(/[^0-9,-]+/g,"").replace(",",".") || "0"), 0);
+      const totalRevenue = wonLeads.reduce((acc, l) => {
+        const raw = String(l.value || '0');
+        return acc + (parseFloat(raw.replace(/[^0-9,-]+/g,"").replace(",",".") || "0") || 0);
+      }, 0);
       const ticketMedio = wonLeads.length > 0 ? totalRevenue / wonLeads.length : 0;
       const conversion = leads.length > 0 ? (wonLeads.length / leads.length) * 100 : 0;
 
@@ -284,6 +301,17 @@ export default function Dashboard() {
                 <option value="30days">Últimos 30 dias</option>
               </select>
             </div>
+            
+            <button 
+              className={`${styles.refreshBtn} ${isRefreshing ? styles.refreshing : ''}`}
+              onClick={handleRefresh}
+              title="Atualizar dados agora"
+              disabled={isRefreshing}
+            >
+              <Activity size={18} className={isRefreshing ? styles.spin : ''} />
+              <span>{isRefreshing ? 'Sincronizando...' : 'Atualizar'}</span>
+            </button>
+
             <button 
               className={styles.filterBtn}
               onClick={handleFilter}

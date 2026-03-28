@@ -58,6 +58,7 @@ type LeadContextType = {
   deleteTag: (tag: string) => void;
   updatePipelineStages: (newStages: PipelineStage[]) => void;
   dbStatus: boolean;
+  refreshDatabase: () => Promise<void>;
 };
 
 const LeadContext = createContext<LeadContextType | undefined>(undefined);
@@ -75,61 +76,60 @@ export const LeadProvider = ({ children }: { children: ReactNode }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [dbStatus, setDbStatus] = useState(false);
 
-  useEffect(() => {
-    const fetchDatabase = async () => {
-      // Se supabase=null (não achou chaves no .env), aborta silenciosamente e roda na memória usando os Iniciais.
-      if (!supabase) return;
+  const fetchDatabase = React.useCallback(async () => {
+    if (!supabase) return;
 
-      try {
-        const { data: dbStages, error: stagesError } = await supabase.from('pipeline_stages').select('*').order('position');
-        const { data: dbLeads, error: leadsError } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
+    try {
+      const { data: dbStages, error: stagesError } = await supabase.from('pipeline_stages').select('*').order('position');
+      const { data: dbLeads, error: leadsError } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
 
-        if (!stagesError && !leadsError && dbStages && dbLeads) {
-          setDbStatus(true);
-          
-          const mappedLeads = dbLeads.map(l => ({
-            id: l.id,
-            name: l.name,
-            email: l.email || '',
-            phone: l.phone || '',
-            cpfCnpj: l.cpf_cnpj || '',
-            value: `R$ ${(l.value || 0).toLocaleString('pt-BR')}`,
-            pipelineStage: l.stage_id,
-            tags: ['Banco Dados'],
-            channels: ['whatsapp'],
-            status: 'Ativo',
-            color: '#3b82f6',
-            lastMsg: 'Hoje',
-            entryDate: new Date(l.created_at).toLocaleDateString('pt-BR')
+      if (!stagesError && !leadsError && dbStages && dbLeads) {
+        setDbStatus(true);
+        
+        const mappedLeads = dbLeads.map(l => ({
+          id: l.id,
+          name: l.name,
+          email: l.email || '',
+          phone: l.phone || '',
+          cpfCnpj: l.cpf_cnpj || '',
+          value: `R$ ${(l.value || 0).toLocaleString('pt-BR')}`,
+          pipelineStage: l.stage_id,
+          tags: ['Banco Dados'],
+          channels: ['whatsapp'],
+          status: 'Ativo',
+          color: '#3b82f6',
+          lastMsg: 'Hoje',
+          entryDate: new Date(l.created_at).toLocaleDateString('pt-BR')
+        }));
+
+        setLeads(mappedLeads);
+        
+        if (dbStages.length > 0) {
+          const mappedStages = dbStages.map(s => ({
+            id: s.id,
+            name: s.name,
+            color: s.color,
+            leads: mappedLeads.filter((l:any) => l.pipelineStage === s.id).map((l:any) => l.id)
           }));
-
-          setLeads(mappedLeads);
-          
-          if (dbStages.length > 0) {
-            const mappedStages = dbStages.map(s => ({
-              id: s.id,
-              name: s.name,
-              color: s.color,
-              leads: mappedLeads.filter((l:any) => l.pipelineStage === s.id).map((l:any) => l.id)
-            }));
-            setPipelineStages(mappedStages);
-          }
+          setPipelineStages(mappedStages);
         }
-      } catch (err) {
-        console.error('Falha de conexão:', err);
       }
-    };
-    
-    fetchDatabase();
+    } catch (err) {
+      console.error('Falha de conexão:', err);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchDatabase();
+  }, [fetchDatabase]);
 
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);
 
   const addLead = async (leadData: Omit<Lead, 'id' | 'entryDate' | 'status' | 'color' | 'channels' | 'lastMsg'>) => {
-    // Tentar mandar direto pro Database Nuvem
     if (supabase && dbStatus) {
-      const numericVal = parseFloat((leadData.value || '0').replace(/[^0-9,-]+/g,"").replace(",",".") || "0");
+      const rawValue = String(leadData.value || '0');
+      const numericVal = parseFloat(rawValue.replace(/[^0-9,-]+/g,"").replace(",",".") || "0");
       const { data, error } = await supabase.from('leads').insert([{
         name: leadData.name,
         email: leadData.email,
@@ -153,7 +153,6 @@ export const LeadProvider = ({ children }: { children: ReactNode }) => {
       }
     }
 
-    // Se falhar ou estiver deslogado, vai salvar no Front-End Offline local!
     const newLeadId = `lead-${Date.now()}`;
     const dateStr = new Date().toLocaleDateString('pt-BR');
     const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444'];
@@ -179,15 +178,15 @@ export const LeadProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateLead = async (leadId: string, updates: Partial<Lead>) => {
-    // Sync with Supabase if active
     if (supabase && dbStatus && !leadId.startsWith('lead-')) {
       const dbUpdates: any = {};
       if (updates.name) dbUpdates.name = updates.name;
       if (updates.email) dbUpdates.email = updates.email;
       if (updates.phone) dbUpdates.phone = updates.phone;
       if (updates.cpfCnpj) dbUpdates.cpf_cnpj = updates.cpfCnpj;
-      if (updates.value) {
-        dbUpdates.value = parseFloat((updates.value || '0').replace(/[^0-9,-]+/g,"").replace(",",".") || "0");
+      if (updates.value !== undefined) {
+        const rawValue = String(updates.value || '0');
+        dbUpdates.value = parseFloat(rawValue.replace(/[^0-9,-]+/g,"").replace(",",".") || "0");
       }
       
       await supabase.from('leads').update(dbUpdates).eq('id', leadId);
@@ -255,7 +254,8 @@ export const LeadProvider = ({ children }: { children: ReactNode }) => {
       addTag,
       deleteTag,
       updatePipelineStages,
-      dbStatus
+      dbStatus,
+      refreshDatabase: fetchDatabase
     }}>
       {children}
     </LeadContext.Provider>
