@@ -13,6 +13,7 @@ import {
 import styles from './login.module.css';
 import { useAuth } from '@/context/AuthContext';
 import { logAudit } from '@/lib/audit';
+import { supabase } from '@/lib/supabase';
 
 export default function LoginPage() {
   const { login } = useAuth();
