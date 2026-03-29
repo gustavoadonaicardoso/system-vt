@@ -36,8 +36,17 @@
   background: rgba(128, 128, 128, 0.1);
 }
 
+@media (max-width: 1024px) {
+  .header {
+    width: 100%;
+    left: 0;
+  }
+}
+
 @media (max-width: 768px) {
   .header {
+    width: 100%;
+    left: 0;
     padding: 0 0.5rem;
     gap: 0.5rem;
   }

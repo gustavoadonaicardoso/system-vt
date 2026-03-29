@@ -11,7 +11,7 @@ export interface ZApiConfig {
 /**
  * Send a text message through Z-API
  */
-export async function sendWhatsApp(phone: string, message: string, options?: { delayMessage?: number; delayTyping?: number }) {
+export async function sendWhatsApp(phone: string, message: string, leadId?: string, options?: { delayMessage?: number; delayTyping?: number }) {
   if (!supabase) return { success: false, error: 'Supabase não inicializado' };
 
   try {
@@ -53,6 +53,17 @@ export async function sendWhatsApp(phone: string, message: string, options?: { d
     });
 
     const result = await response.json();
+    
+    if (response.ok && leadId) {
+        // Save to Database
+        await supabase.from('chat_messages').insert([{
+            lead_id: leadId,
+            text: message,
+            sent_by_me: true,
+            type: 'text'
+        }]);
+    }
+
     return { success: response.ok, data: result };
 
   } catch (err: any) {
@@ -68,62 +79,69 @@ export async function handleZapiWebhook(payload: any) {
     if (!supabase) return { success: false, error: 'Supabase não inicializado' };
 
     try {
-        // Normalize phone for comparison
         let rawPhone = payload.phone || '';
         let cleanPhone = rawPhone.replace(/\D/g, '');
         
-        // Handle message event
-        // Note: Z-API typically uses 'type' or follows an event pattern
-        const isReceivedMessage = payload.isGroup === false; // Usually only handle direct messages unless configured
+        // Z-API sends country code. Remove it to find local leads if necessary, 
+        // but it's better to keep it if the DB phone also has it.
+        // We will try a robust search:
+        const searchSuffix = cleanPhone.slice(-8); // Get last 8 digits
+
+        const isReceivedMessage = payload.isGroup === false;
         
-        if (isReceivedMessage && payload.text?.message) {
+        if (isReceivedMessage && (payload.text?.message || payload.audio?.audioUrl)) {
             const senderName = payload.senderName || 'Cliente WhatsApp';
-            const messageText = payload.text.message;
+            const messageText = payload.text?.message || '';
+            const audioUrl = payload.audio?.audioUrl || null;
+            const messageType = audioUrl ? 'audio' : 'text';
 
-            // 1. Find existing lead
-            const { data: existingLeads } = await supabase
-                .from('leads')
-                .select('id, name')
-                .eq('phone', cleanPhone)
+            // 1. Find existing lead by normalized phone
+            // PostgreSQL trick to compare only digits
+            const { data: lead } = await supabase
+                .rpc('find_lead_by_phone', { search_phone: cleanPhone }) // Recommended SQL function approach
                 .maybeSingle();
+            
+            // Fallback if RPC not defined
+            let targetLead: any = lead;
+            if (!targetLead) {
+                const { data: leads } = await supabase.from('leads').select('id, name, phone');
+                targetLead = leads?.find((l: any) => l.phone.replace(/\D/g, '').endsWith(searchSuffix));
+            }
 
-            if (existingLeads) {
-                // Update last activity or similar if you have the fields
-                console.log(`[Z-API] Mensagem de lead existente: ${existingLeads.name}`);
-            } else {
-                // 2. Create new lead if not found
-                // Get the first stage ID
-                const { data: stages } = await supabase
-                    .from('pipeline_stages')
-                    .select('id')
-                    .order('position', { ascending: true })
-                    .limit(1);
+            let leadId = targetLead?.id;
 
+            if (!leadId) {
+                // 2. Create new lead
+                const { data: stages } = await supabase.from('pipeline_stages').select('id').order('position').limit(1);
                 const firstStageId = stages && stages.length > 0 ? stages[0].id : null;
 
-                const { data: newLead, error: createError } = await supabase
-                    .from('leads')
-                    .insert([{
-                        name: senderName,
-                        phone: cleanPhone,
-                        stage_id: firstStageId,
-                        email: ''
-                    }])
-                    .select()
-                    .single();
+                const { data: newLead } = await supabase.from('leads').insert([{
+                    name: senderName,
+                    phone: cleanPhone,
+                    stage_id: firstStageId
+                }]).select().single();
 
-                if (!createError && newLead) {
-                    await logAudit(
-                        null, 
-                        'LEAD_CREATE', 
-                        `Lead ${senderName} criado automaticamente via WhatsApp (Z-API).`,
-                        'lead',
-                        newLead.id
-                    );
+                if (newLead) {
+                    leadId = newLead.id;
+                    await logAudit(null, 'LEAD_CREATE', `Lead ${senderName} criado via Z-API.`, 'lead', newLead.id);
                 }
             }
             
-            // 3. Optional: Save to a separate messages/conversations table
+            if (leadId) {
+                // 3. Save Message to Database
+                await supabase.from('chat_messages').insert([{
+                    lead_id: leadId.toString(),
+                    text: messageText,
+                    audio_url: audioUrl,
+                    sent_by_me: false,
+                    type: messageType
+                }]);
+                
+                // 4. Update lead lastMsg
+                await supabase.from('leads').update({ 
+                    last_msg: messageText || (audioUrl ? '🎵 Áudio' : 'Nova mensagem') 
+                }).eq('id', leadId);
+            }
         }
         
         return { success: true };

@@ -33,6 +33,7 @@ import { useAuth } from '@/context/AuthContext';
 import styles from './messages.module.css';
 import { motion, AnimatePresence } from 'framer-motion';
 import { sendWhatsApp } from '@/lib/zapi';
+import { supabase } from '@/lib/supabase';
 
 // Mock Lists
 const QUICK_MESSAGES = [
@@ -131,7 +132,7 @@ function MessagesContent() {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(initialChatId);
   const [inputText, setInputText] = useState('');
   
-  const [chatHistories, setChatHistories] = useState(INITIAL_MESSAGES);
+  const [activeMessages, setActiveMessages] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Popover States
@@ -216,7 +217,67 @@ function MessagesContent() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatHistories, selectedChatId, isRecording]);
+  }, [activeMessages, selectedChatId, isRecording]);
+
+  // Real-time Messages Fetching
+  useEffect(() => {
+    if (!selectedChatId || !supabase) return;
+
+    const fetchHistory = async () => {
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('lead_id', selectedChatId)
+        .order('created_at', { ascending: true });
+      
+      if (!error && data) {
+        console.log('Chat History Loaded:', data.length, 'messages');
+        setActiveMessages(data.map(m => ({
+          id: m.id,
+          type: m.type,
+          text: m.text,
+          audioUrl: m.audio_url,
+          sent: m.sent_by_me,
+          time: new Date(m.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+        })));
+      } else if (error) {
+        console.error('Error fetching chat history:', error);
+      }
+    };
+
+    fetchHistory();
+
+    const channel = supabase
+      .channel(`chat-${selectedChatId}`)
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'chat_messages'
+      }, (payload) => {
+        const m = payload.new;
+        if (m.lead_id === selectedChatId) {
+          setActiveMessages(prev => {
+            // Avoid duplicates from optimistic update
+            if (prev.some(msg => msg.id === m.id || (msg.text === m.text && !msg.id.toString().startsWith('sent-')))) {
+              return prev;
+            }
+            return [...prev, {
+              id: m.id,
+              type: m.type,
+              text: m.text,
+              audioUrl: m.audio_url,
+              sent: m.sent_by_me,
+              time: new Date(m.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+            }];
+          });
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedChatId]);
 
   const handleSendMessage = (textToOverride?: string) => {
     let finalMsg = textToOverride || inputText;
@@ -231,23 +292,21 @@ function MessagesContent() {
     }
 
     const newMessage = {
-      id: Date.now(),
+      id: `sent-${Date.now()}`,
       type: 'text',
       text: finalMsg,
       sent: true,
       time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
     };
 
-    setChatHistories(prev => {
-      const currentMessages = prev[selectedChatId] || [];
-      return { ...prev, [selectedChatId]: [...currentMessages, newMessage] };
-    });
+    // Optimistic Update: Add to UI immediately
+    setActiveMessages(prev => [...prev, newMessage]);
 
     const targetLead = leads.find(l => l.id === selectedChatId);
     if (targetLead && targetLead.phone) {
-       sendWhatsApp(targetLead.phone, finalMsg).then(res => {
+       sendWhatsApp(targetLead.phone, finalMsg, selectedChatId).then(res => {
          if (!res?.success) {
-           console.error('Falha ao enviar via Z-API:', res?.error);
+           alert('Falha ao enviar via Z-API: ' + res?.error);
          }
        });
     }
@@ -302,14 +361,8 @@ function MessagesContent() {
         if (!(mediaRecorderRef.current as any)?.hasCanceled) {
           const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
           const audioUrl = URL.createObjectURL(audioBlob);
-          const newAudioMessage = {
-            id: Date.now(), type: 'audio', audioUrl: audioUrl, sent: true, duration: recordingTime,
-            time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-          };
-          setChatHistories(prev => {
-            const currentMessages = prev[selectedChatId] || [];
-            return { ...prev, [selectedChatId]: [...currentMessages, newAudioMessage] };
-          });
+          // TODO: Implement Z-API audio sending for DB persistence
+          // For now, these are not saved to chat_messages table
         }
         stream.getTracks().forEach(track => track.stop());
       };
@@ -371,7 +424,6 @@ function MessagesContent() {
     }
   };
 
-  const activeMessages = selectedChatId ? (chatHistories[selectedChatId] || []) : [];
 
   return (
     <div className={styles.container}>
@@ -390,15 +442,12 @@ function MessagesContent() {
         </div>
         <div className={styles.chatList}>
           {filteredChats.map(chat => {
-            const msgs = chatHistories[chat.id];
-            const hasMessages = msgs && msgs.length > 0;
-            const lastMsgText = hasMessages ? (msgs[msgs.length - 1].type === 'audio' ? '🎵 Áudio' : msgs[msgs.length - 1].text) : chat.text;
             return (
               <div key={chat.id} className={`${styles.chatItem} ${selectedChatId === chat.id ? styles.activeChat : ''}`} onClick={() => setSelectedChatId(chat.id)}>
                 <div className={styles.avatar} style={{ background: chat.color }}>{chat.avatar}</div>
                 <div className={styles.chatInfo}>
-                  <div className={styles.chatHeader}><span className={styles.chatName}>{chat.name}</span><span className={styles.chatTime}>{hasMessages ? msgs[msgs.length - 1].time : chat.time}</span></div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span className={styles.chatPreview}>{lastMsgText}</span></div>
+                  <div className={styles.chatHeader}><span className={styles.chatName}>{chat.name}</span><span className={styles.chatTime}>{chat.time}</span></div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span className={styles.chatPreview}>{chat.text}</span></div>
                 </div>
               </div>
             );
@@ -421,11 +470,11 @@ function MessagesContent() {
               </div>
             </div>
 
-            <div className={styles.messagesArea}>
+             <div className={styles.messagesArea}>
                {activeMessages.map(msg => (
                 <div key={msg.id} className={`${styles.message} ${msg.sent ? styles.sent : styles.received}`}>
                   {msg.type === 'text' && <span>{msg.text}</span>}
-                  {msg.type === 'audio' && <AudioPlayer url={msg.audioUrl} duration={msg.duration} />}
+                  {msg.type === 'audio' && <AudioPlayer url={msg.audioUrl} duration={5} />}
                   <div className={styles.msgFooter}>
                     <span className={styles.msgTime}>{msg.time}</span>
                     {msg.sent && (
@@ -439,7 +488,7 @@ function MessagesContent() {
                   </div>
                 </div>
               ))}
-              <div ref={messagesEndRef} style={{ height: 1 }} />
+               <div ref={messagesEndRef} style={{ height: 1 }} />
             </div>
 
             {/* BARRA DE MENSAGENS PREMIUM */}
