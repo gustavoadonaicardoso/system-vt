@@ -16,7 +16,9 @@ interface Ticket {
 interface QueueSettings {
   logo_url: string;
   banner_url: string;
+  app_name: string;
   primary_color: string;
+  secondary_color: string;
   welcome_text: string;
 }
 
@@ -97,7 +99,13 @@ export default function DisplayPage() {
           {settings?.logo_url ? (
             <img src={settings.logo_url} alt="Logo" style={{ height: '50px' }} />
           ) : (
-            'VÓRTICE PAINEL'
+            <span style={{ 
+              background: `linear-gradient(135deg, ${settings?.primary_color || '#3b82f6'}, ${settings?.secondary_color || '#8b5cf6'})`,
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent'
+            }}>
+              {settings?.app_name || 'VÓRTICE PAINEL'}
+            </span>
           )}
         </div>
         <div className={styles.clock}>
