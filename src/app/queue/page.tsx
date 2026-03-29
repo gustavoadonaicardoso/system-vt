@@ -124,13 +124,18 @@ export default function QueuePage() {
   const resetQueue = async () => {
     if (!confirm('Tem certeza que deseja zerar a fila e começar do 01?')) return;
 
-    const { error } = await supabase?.from('queue_tickets').delete().filter('status', 'in', '("waiting", "calling", "completed")') || { error: 'Supabase client missing' };
+    // Correctly clear all queue items regardless of status
+    const { error } = await supabase?.from('queue_tickets').delete().neq('id', '00000000-0000-0000-0000-000000000000') || { error: 'Supabase client missing' };
     
     if (error) {
       console.error(error);
       alert('Erro ao zerar fila');
+    } else {
+      // Force local counter reset
+      setLastTicketIssued(0);
+      setWaitingTickets([]);
+      setCurrentTicket(null);
     }
-    fetchQueue();
   };
 
   return (
