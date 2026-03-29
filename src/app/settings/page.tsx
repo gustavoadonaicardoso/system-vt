@@ -24,6 +24,7 @@ export default function SettingsPage() {
   const [queueTotalDesks, setQueueTotalDesks] = useState(5);
   const [queueLogoUrl, setQueueLogoUrl] = useState('');
   const [queueBannerUrl, setQueueBannerUrl] = useState('');
+  const [queueAppName, setQueueAppName] = useState('VÓRTICE PAINEL');
   const [queuePrimaryColor, setQueuePrimaryColor] = useState('#3b82f6');
   const [queueSecondaryColor, setQueueSecondaryColor] = useState('#8b5cf6');
   const [welcomeText, setWelcomeText] = useState('Bem-vindo ao nosso atendimento');
@@ -199,6 +200,12 @@ export default function SettingsPage() {
                   <input type="color" className={styles.input} style={{ width: '60px', padding: '2px' }} value={queueSecondaryColor} onChange={e => setQueueSecondaryColor(e.target.value)} />
                   <input type="text" className={styles.input} value={queueSecondaryColor} onChange={e => setQueueSecondaryColor(e.target.value)} />
                 </div>
+              </div>
+
+              <div className={`${styles.formGroup} ${styles.fullWidth}`}>
+                <label>Nome do Painel (Texto)</label>
+                <input type="text" className={styles.input} value={queueAppName} onChange={e => setQueueAppName(e.target.value)} />
+                <p style={{ fontSize: '0.8rem', opacity: 0.5, marginTop: '4px' }}>Aparecerá no topo do telão caso não haja um logo em imagem.</p>
               </div>
 
               <div className={`${styles.formGroup} ${styles.fullWidth}`}>
