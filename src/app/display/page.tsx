@@ -10,6 +10,7 @@ interface Ticket {
   desk: string;
   status: string;
   created_at: string;
+  updated_at: string;
 }
 
 interface QueueSettings {
@@ -120,9 +121,14 @@ export default function DisplayPage() {
           {history.length > 0 ? (
             history.map((ticket) => (
               <div key={ticket.id} className={styles.historyItem}>
-                <span className={styles.historyTicket}>
-                  #{ticket.number.toString().padStart(2, '0')}
-                </span>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span className={styles.historyTicket}>
+                    #{ticket.number.toString().padStart(2, '0')}
+                  </span>
+                  <span style={{ fontSize: '0.8rem', opacity: 0.6 }}>
+                    {new Date(ticket.updated_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
                 <span className={styles.historyDesk}>Guichê {ticket.desk}</span>
               </div>
             ))
