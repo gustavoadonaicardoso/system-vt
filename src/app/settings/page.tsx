@@ -14,6 +14,7 @@ import {
   Ticket
 } from 'lucide-react';
 import styles from './settings.module.css';
+import { supabase } from '@/lib/supabase';
 
 type TabType = 'profile' | 'company' | 'preferences' | 'billing' | 'senhas';
 
