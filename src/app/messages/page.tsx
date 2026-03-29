@@ -222,9 +222,10 @@ function MessagesContent() {
   // Real-time Messages Fetching
   useEffect(() => {
     if (!selectedChatId || !supabase) return;
+    const client = supabase; // Type-safe reference
 
     const fetchHistory = async () => {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('chat_messages')
         .select('*')
         .eq('lead_id', selectedChatId)
@@ -247,7 +248,7 @@ function MessagesContent() {
 
     fetchHistory();
 
-    const channel = supabase
+    const channel = client
       .channel(`chat-${selectedChatId}`)
       .on('postgres_changes', { 
         event: 'INSERT', 
@@ -275,7 +276,7 @@ function MessagesContent() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      client.removeChannel(channel);
     };
   }, [selectedChatId]);
 
