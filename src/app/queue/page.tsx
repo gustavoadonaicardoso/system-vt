@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import styles from './queue.module.css';
 import { logAudit } from '@/lib/audit';
 import { useAuth } from '@/context/AuthContext';
+import { sendWhatsApp } from '@/lib/zapi';
 import { 
   Monitor, 
   UserPlus, 
@@ -142,6 +143,12 @@ export default function QueuePage() {
       }
 
       setManualName('');
+      
+      // WhatsApp Automation
+      if (manualWhatsapp) {
+        sendWhatsApp(manualWhatsapp, `✅ *Painel Estação Vórtice* ✅\n\nSua senha manual foi gerada!\n\nTicket: *#${nextNumber.toString().padStart(2, '0')}*\nAtendimento: *Gerencial*\n\nAguarde o chamado no telão.`);
+      }
+
       setManualWhatsapp('');
       setManualDocument('');
     }

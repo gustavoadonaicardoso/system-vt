@@ -16,7 +16,7 @@ import {
 import styles from './settings.module.css';
 import { supabase } from '@/lib/supabase';
 
-type TabType = 'profile' | 'company' | 'preferences' | 'billing' | 'senhas';
+type TabType = 'profile' | 'company' | 'preferences' | 'integrations' | 'billing' | 'senhas';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('profile');
@@ -46,6 +46,23 @@ export default function SettingsPage() {
   const [notifWhatsApp, setNotifWhatsApp] = useState(true);
   const [notifBrowser, setNotifBrowser] = useState(false);
 
+  // Integrations States
+  const [zapiInstance, setZapiInstance] = useState('');
+  const [zapiToken, setZapiToken] = useState('');
+
+  const fetchIntegrations = async () => {
+    if (!supabase) return;
+    const { data } = await supabase.from('integrations_config').select('config').eq('provider', 'zapi').single();
+    if (data) {
+      setZapiInstance(data.config.instanceId || '');
+      setZapiToken(data.config.token || '');
+    }
+  };
+
+  React.useEffect(() => {
+    if (activeTab === 'integrations') fetchIntegrations();
+  }, [activeTab]);
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
@@ -64,6 +81,15 @@ export default function SettingsPage() {
 
         if (error) throw error;
         alert("Configurações de senhas salvas com sucesso!");
+      } else if (activeTab === 'integrations') {
+        const { error } = await supabase?.from('integrations_config').upsert({
+          provider: 'zapi',
+          config: { instanceId: zapiInstance, token: zapiToken },
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'provider' }) || { error: 'Supabase missing' };
+
+        if (error) throw error;
+        alert("Configurações da Z-API salvas com sucesso!");
       } else {
         alert("Configurações salvas com sucesso!");
       }
@@ -190,6 +216,48 @@ export default function SettingsPage() {
               <div className={`${styles.toggleSwitch} ${notifBrowser ? styles.active : ''}`} onClick={() => setNotifBrowser(!notifBrowser)}>
                 <div className={styles.toggleSlider}></div>
               </div>
+            </div>
+          </div>
+        );
+
+      case 'integrations':
+        return (
+          <div className={styles.panel}>
+            <div style={{ display: 'flex', gap: '15px', alignItems: 'center', marginBottom: '30px' }}>
+              <div style={{ background: '#25D36615', padding: '12px', borderRadius: '12px', color: '#25D366' }}>
+                <MessageSquare size={32} />
+              </div>
+              <div>
+                <h3 className={styles.panelTitle} style={{ margin: 0 }}>Z-API (WhatsApp Business)</h3>
+                <p style={{ fontSize: '0.9rem', opacity: 0.6 }}>Conecte sua instância da Z-API para automações de WhatsApp.</p>
+              </div>
+            </div>
+
+            <div className={styles.formGrid}>
+              <div className={styles.formGroup}>
+                <label>ID da Instância (Instance ID)</label>
+                <input 
+                  type="text" 
+                  className={styles.input} 
+                  value={zapiInstance} 
+                  onChange={e => setZapiInstance(e.target.value)}
+                  placeholder="Ex: 3B4..." 
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label>Token da Instância (Token)</label>
+                <input 
+                  type="password" 
+                  className={styles.input} 
+                  value={zapiToken} 
+                  onChange={e => setZapiToken(e.target.value)}
+                  placeholder="Seu token Z-API" 
+                />
+              </div>
+            </div>
+
+            <div style={{ marginTop: '20px', padding: '15px', background: 'rgba(37, 211, 102, 0.05)', borderRadius: '12px', border: '1px solid rgba(37, 211, 102, 0.1)' }}>
+              <p style={{ fontSize: '0.9rem' }}><strong>Status:</strong> Verifique se sua instância está <strong>CONECTADA</strong> no portal da Z-API para que o sistema funcione.</p>
             </div>
           </div>
         );
@@ -341,6 +409,12 @@ export default function SettingsPage() {
             onClick={() => setActiveTab('billing')}
           >
             <CreditCard size={18} /> Assinatura & Faturas
+          </button>
+          <button 
+            className={`${styles.navItem} ${activeTab === 'integrations' ? styles.navItemActive : ''}`} 
+            onClick={() => setActiveTab('integrations')}
+          >
+            <MessageSquare size={18} /> Integrações
           </button>
           <button 
             className={`${styles.navItem} ${activeTab === 'senhas' ? styles.navItemActive : ''}`} 

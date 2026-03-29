@@ -17,7 +17,8 @@ import {
   Link2,
   Lock,
   ChevronRight,
-  Loader2
+  Loader2,
+  Zap
 } from 'lucide-react';
 import styles from './integrations.module.css';
 import { supabase } from '@/lib/supabase';
@@ -32,6 +33,15 @@ const INTEGRATIONS = [
     category: 'Comunicação',
     status: 'pending', // Mudando para pendente para incentivar a configuração
     color: '#25D366'
+  },
+  {
+    id: 'zapi',
+    name: 'Z-API (WhatsApp)',
+    description: 'Conecte sua conta Z-API para automações rápidas sem burocracia do Facebook Business Manager.',
+    icon: Zap,
+    category: 'Comunicação',
+    status: 'not_connected',
+    color: '#11c1d9'
   },
   {
     id: 'google-sheets',
@@ -92,8 +102,48 @@ export default function Integrations() {
     instagramId: ''
   });
 
+  // Z-API Config State
+  const [zapiConfig, setZapiConfig] = useState({
+    instanceId: '',
+    token: ''
+  });
+
+  // Webhook Config State
+  const [webhookConfig, setWebhookConfig] = useState({
+    url: '',
+    secret: ''
+  });
+
   const [isTesting, setIsTesting] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [zapiQr, setZapiQr] = useState<string | null>(null);
+  const [isFetchingQr, setIsFetchingQr] = useState(false);
+
+  const fetchZapiQrCode = async () => {
+    if (!zapiConfig.instanceId || !zapiConfig.token) {
+      alert("Informe o Instance ID e Token primeiro.");
+      return;
+    }
+    
+    setIsFetchingQr(true);
+    setZapiQr(null);
+    
+    try {
+      const response = await fetch(`https://api.z-api.io/instances/${zapiConfig.instanceId}/token/${zapiConfig.token}/qr-code`);
+      const data = await response.json();
+      
+      if (data.value) {
+        setZapiQr(data.value); // Base64 image
+      } else {
+        alert("Instância já está conectada ou erro ao gerar QR.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao conectar com Z-API.");
+    } finally {
+      setIsFetchingQr(false);
+    }
+  };
 
   const handleTestConnection = async () => {
     if (!waConfig.token || !waConfig.phoneId) {
@@ -115,26 +165,86 @@ export default function Integrations() {
     }
   };
 
-  const handleSaveConfig = async (type: 'whatsapp' | 'meta' = 'whatsapp') => {
-     setSaveStatus('saving');
-     // Logic for saving to Supabase (Mocked metadata for now)
-     console.log(`Saving ${type} config:`, type === 'whatsapp' ? waConfig : metaConfig);
-     
-     // Simulation of Supabase save
-     setTimeout(() => {
-        setSaveStatus('success');
-        setTimeout(() => {
-          setActiveModal(null);
-          setSaveStatus('idle');
-          
-          // Update local status mock
-          const target = INTEGRATIONS.find(i => i.id === (type === 'whatsapp' ? 'whatsapp' : 'meta-ads'));
-          if (target) target.status = 'connected';
-        }, 1500);
-     }, 1000);
+  const [connectedProviders, setConnectedProviders] = useState<string[]>([]);
+
+  const fetchConfigs = async () => {
+    if (!supabase) return;
+    const { data } = await supabase.from('integrations_config').select('*');
+    if (data) {
+      const providers = data.map(item => item.provider);
+      setConnectedProviders(providers);
+      
+      data.forEach(item => {
+        if (item.provider === 'zapi') {
+          setZapiConfig({ instanceId: item.config.instanceId, token: item.config.token });
+        } else if (item.provider === 'whatsapp_meta') {
+          setWaConfig({ token: item.config.token, phoneId: item.config.phoneId, wabaId: item.config.wabaId });
+        } else if (item.provider === 'meta_ads') {
+          setMetaConfig({ pageToken: item.config.pageToken, pageId: item.config.pageId, instagramId: item.config.instagramId });
+        } else if (item.provider === 'webhook_custom') {
+          setWebhookConfig({ url: item.config.url, secret: item.config.secret });
+        }
+      });
+    }
   };
 
-  const filteredIntegrations = INTEGRATIONS.filter(item => {
+  React.useEffect(() => {
+    fetchConfigs();
+  }, []);
+
+  const handleSaveConfig = async (type: 'whatsapp' | 'meta' | 'zapi' = 'whatsapp') => {
+     if (!supabase) return;
+     setSaveStatus('saving');
+     
+     try {
+       let configToSave = {};
+       let provider = '';
+
+       if (type === 'zapi') {
+         configToSave = zapiConfig;
+         provider = 'zapi';
+       } else if (type === 'whatsapp') {
+         configToSave = waConfig;
+         provider = 'whatsapp_meta';
+       } else if (type === 'webhook' as any) {
+         configToSave = webhookConfig;
+         provider = 'webhook_custom';
+       } else {
+         configToSave = metaConfig;
+         provider = 'meta_ads';
+       }
+
+       const { error } = await supabase.from('integrations_config').upsert({
+         provider,
+         config: configToSave,
+         updated_at: new Date().toISOString()
+       }, { onConflict: 'provider' });
+
+       if (error) throw error;
+
+       setSaveStatus('success');
+       setTimeout(() => {
+         setActiveModal(null);
+         setSaveStatus('idle');
+         // O status visual será atualizado no próximo reload ou via estado global se implementado
+       }, 1500);
+     } catch (err) {
+       console.error(err);
+       setSaveStatus('error');
+       alert("Erro ao salvar configuração.");
+       setTimeout(() => setSaveStatus('idle'), 3000);
+     }
+  };
+
+  const filteredIntegrations = INTEGRATIONS.map(item => {
+    let currentStatus = item.status;
+    if (item.id === 'zapi' && connectedProviders.includes('zapi')) currentStatus = 'connected';
+    if (item.id === 'whatsapp' && connectedProviders.includes('whatsapp_meta')) currentStatus = 'connected';
+    if (item.id === 'meta-ads' && connectedProviders.includes('meta_ads')) currentStatus = 'connected';
+    if (item.id === 'webhook' && connectedProviders.includes('webhook_custom')) currentStatus = 'connected';
+    
+    return { ...item, status: currentStatus };
+  }).filter(item => {
     const matchesFilter = filter === 'Todos' || item.category === filter;
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           item.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -173,6 +283,8 @@ export default function Integrations() {
                 <div className={styles.inputWrapper}>
                    <input 
                       type="password" 
+                      name="wa-token"
+                      autoComplete="new-password"
                       placeholder="EAAG..." 
                       className={styles.premiumInput} 
                       value={waConfig.token}
@@ -187,6 +299,8 @@ export default function Integrations() {
                   <label>ID do Número de Telefone</label>
                   <input 
                     type="text" 
+                    name="wa-phone-id"
+                    autoComplete="off"
                     placeholder="Ex: 109283..." 
                     className={styles.premiumInput} 
                     value={waConfig.phoneId}
@@ -197,6 +311,8 @@ export default function Integrations() {
                   <label>ID da Conta Business (WABA)</label>
                   <input 
                     type="text" 
+                    name="wa-account-id"
+                    autoComplete="off"
                     placeholder="Ex: 987654..." 
                     className={styles.premiumInput} 
                     value={waConfig.wabaId}
@@ -286,6 +402,8 @@ export default function Integrations() {
                 <div className={styles.inputWrapper}>
                    <input 
                       type="password" 
+                      name="meta-page-token"
+                      autoComplete="new-password"
                       placeholder="EAAO..." 
                       className={styles.premiumInput} 
                       value={metaConfig.pageToken}
@@ -300,6 +418,8 @@ export default function Integrations() {
                   <label>ID da Página Facebook</label>
                   <input 
                     type="text" 
+                    name="meta-page-id"
+                    autoComplete="off"
                     placeholder="Ex: 1045..." 
                     className={styles.premiumInput} 
                     value={metaConfig.pageId}
@@ -310,6 +430,8 @@ export default function Integrations() {
                   <label>ID Instagram Business</label>
                   <input 
                     type="text" 
+                    name="meta-ig-id"
+                    autoComplete="off"
                     placeholder="Ex: 1784..." 
                     className={styles.premiumInput} 
                     value={metaConfig.instagramId}
@@ -340,6 +462,170 @@ export default function Integrations() {
                 disabled={saveStatus !== 'idle'}
             >
                {saveStatus === 'saving' ? 'Conectando...' : saveStatus === 'success' ? 'Salvo!' : 'Ativar Integração Meta'}
+            </button>
+          </div>
+        </>
+      );
+    }
+
+    if (activeModal === 'zapi') {
+      return (
+        <>
+          <div className={styles.modalHeader}>
+            <div className={styles.modalTitle}>
+              <div className={styles.iconBox} style={{ width: 40, height: 40, background: '#11c1d922', color: '#11c1d9' }}>
+                <Zap size={20} />
+              </div>
+              <div>
+                <span style={{ fontSize: '1.1rem', display: 'block' }}>Configuração Z-API</span>
+                <span style={{ fontSize: '0.75rem', opacity: 0.6 }}>WhatsApp Gateway sem burocracia</span>
+              </div>
+            </div>
+            <button className={styles.closeBtn} onClick={() => setActiveModal(null)}><X size={20} /></button>
+          </div>
+          <div className={styles.modalBody}>
+            <p style={{ opacity: 0.7, fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+              Utilize as credenciais da sua instância no painel da Z-API para habilitar o envio de mensagens automáticas.
+            </p>
+            <div className={styles.formGrid}>
+               <div className={styles.formGroup}>
+                 <label>ID da Instância (Instance ID)</label>
+                 <input 
+                    type="text" 
+                    placeholder="Ex: 3B4..." 
+                    autoComplete="off"
+                    className={styles.premiumInput} 
+                    value={zapiConfig.instanceId}
+                    onChange={(e) => setZapiConfig({...zapiConfig, instanceId: e.target.value})}
+                 />
+               </div>
+               <div className={styles.formGroup}>
+                 <label>Token da Instância (Token)</label>
+                 <input 
+                    type="password" 
+                    placeholder="Seu Token Z-API" 
+                    autoComplete="new-password"
+                    className={styles.premiumInput} 
+                    value={zapiConfig.token}
+                    onChange={(e) => setZapiConfig({...zapiConfig, token: e.target.value})}
+                 />
+               </div>
+            </div>
+            <div className={styles.qrContainer} style={{ marginTop: '1.5rem', textAlign: 'center', padding: '1.5rem', background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid var(--border)' }}>
+               {zapiQr ? (
+                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ background: 'white', padding: '12px', borderRadius: '12px', lineHeight: 0 }}>
+                      <img src={zapiQr} alt="Z-API QR Code" style={{ width: '180px', height: '180px' }} />
+                    </div>
+                    <div>
+                      <p style={{ fontSize: '0.9rem', fontWeight: 600 }}>Escaneie com seu WhatsApp</p>
+                      <button 
+                        onClick={fetchZapiQrCode} 
+                        style={{ background: 'none', border: 'none', color: '#11c1d9', fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline', marginTop: '4px' }}
+                      >
+                        Atualizar QR Code
+                      </button>
+                    </div>
+                 </div>
+               ) : (
+                 <div style={{ padding: '1rem' }}>
+                    <p style={{ fontSize: '0.85rem', opacity: 0.6, marginBottom: '1rem' }}>Conecte seu aparelho sem sair do Vórtice.</p>
+                    <button 
+                      className={styles.btnTest} 
+                      onClick={fetchZapiQrCode}
+                      disabled={isFetchingQr}
+                      style={{ margin: '0 auto', background: 'rgba(17, 193, 217, 0.1)', color: '#11c1d9', border: '1px solid #11c1d944' }}
+                    >
+                      {isFetchingQr ? <Loader2 size={16} className={styles.loader} /> : <Zap size={16} />}
+                      {isFetchingQr ? 'Gerando QR...' : 'Gerar QR Code de Conexão'}
+                    </button>
+                 </div>
+               )}
+            </div>
+
+            <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(17, 193, 217, 0.05)', borderRadius: '12px', border: '1px solid rgba(17, 193, 217, 0.1)' }}>
+               <span style={{ fontSize: '0.85rem', color: '#11c1d9', fontWeight: 600 }}>Dica de Conexão:</span>
+               <p style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '5px' }}>O status deve estar como "CONNECTED" no painel Z-API para que o sistema funcione corretamente.</p>
+            </div>
+          </div>
+          <div className={styles.modalFooter}>
+            <button className={styles.btnCancel} onClick={() => setActiveModal(null)}>Cancelar</button>
+            <button 
+                className={styles.btnSave} 
+                onClick={() => (handleSaveConfig as any)('zapi')}
+                style={{ background: '#11c1d9', color: 'black' }}
+                disabled={saveStatus !== 'idle'}
+            >
+               {saveStatus === 'saving' ? 'Salvando...' : saveStatus === 'success' ? 'Conectado!' : 'Salvar e Ativar Z-API'}
+            </button>
+          </div>
+        </>
+      );
+    }
+
+    if (activeModal === 'webhook') {
+      return (
+        <>
+          <div className={styles.modalHeader}>
+            <div className={styles.modalTitle}>
+              <div className={styles.iconBox} style={{ width: 40, height: 40, background: '#3b82f622', color: '#3b82f6' }}>
+                <Globe size={20} />
+              </div>
+              <div>
+                <span style={{ fontSize: '1.1rem', display: 'block' }}>Configurar Webhooks Customizados</span>
+                <span style={{ fontSize: '0.75rem', opacity: 0.6 }}>Comunicação total via API</span>
+              </div>
+            </div>
+            <button className={styles.closeBtn} onClick={() => setActiveModal(null)}><X size={20} /></button>
+          </div>
+          <div className={styles.modalBody}>
+            <div className={styles.alertBox} style={{ marginBottom: '1.5rem', background: 'rgba(59, 130, 246, 0.05)', color: '#3b82f6', borderColor: 'rgba(59, 130, 246, 0.2)' }}>
+               <p><strong>URL de Notificação:</strong> Toda vez que o CRM receber uma mensagem ou lead, enviaremos um POST para a URL configurada abaixo.</p>
+            </div>
+
+            <div className={styles.formGrid}>
+               <div className={styles.formGroup}>
+                 <label>Endpoint para Recebimento (Sua URL)</label>
+                 <input 
+                    type="url" 
+                    placeholder="https://suaapi.com/webhooks/vortice" 
+                    autoComplete="off"
+                    className={styles.premiumInput} 
+                    value={webhookConfig.url}
+                    onChange={(e) => setWebhookConfig({...webhookConfig, url: e.target.value})}
+                 />
+               </div>
+               <div className={styles.formGroup}>
+                 <label>Secret Token (X-Hub-Signature)</label>
+                 <input 
+                    type="password" 
+                    placeholder="Sua chave de segurança" 
+                    autoComplete="new-password"
+                    className={styles.premiumInput} 
+                    value={webhookConfig.secret}
+                    onChange={(e) => setWebhookConfig({...webhookConfig, secret: e.target.value})}
+                 />
+                 <small style={{ opacity: 0.5, marginTop: '4px', display: 'block' }}>Usado para assinar o cabeçalho e validar a origem do POST.</small>
+               </div>
+            </div>
+
+            <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+               <h5 style={{ fontSize: '0.85rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Link2 size={14} /> Sua URL de Entrada (Para Enviar ao CRM)
+               </h5>
+               <code>https://api.vorticecrm.com/v1/webhook/incoming</code>
+               <p style={{ fontSize: '0.75rem', opacity: 0.5, marginTop: '8px' }}>Utilize este endpoint para injetar leads ou enviar mensagens via sistemas externos.</p>
+            </div>
+          </div>
+          <div className={styles.modalFooter}>
+            <button className={styles.btnCancel} onClick={() => setActiveModal(null)}>Cancelar</button>
+            <button 
+                className={styles.btnSave} 
+                onClick={() => (handleSaveConfig as any)('webhook')}
+                style={{ background: '#3b82f6', color: 'white' }}
+                disabled={saveStatus !== 'idle'}
+            >
+               {saveStatus === 'saving' ? 'Salvando...' : saveStatus === 'success' ? 'Ativo!' : 'Salvar Configuração'}
             </button>
           </div>
         </>
@@ -409,8 +695,8 @@ export default function Integrations() {
           
           <div className={styles.stats}>
             <div className={styles.statItem}>
-              <span className={styles.statValue}>1</span>
-              <span className={styles.statLabel}>Conectado</span>
+              <span className={styles.statValue}>{connectedProviders.length}</span>
+              <span className={styles.statLabel}>Conectado(s)</span>
             </div>
             <div className={styles.statItem}>
               <span className={styles.statValue}>5</span>
@@ -424,6 +710,8 @@ export default function Integrations() {
             <Search size={18} className={styles.searchIcon} />
             <input 
               type="text" 
+              name="integration-search"
+              autoComplete="off"
               placeholder="Buscar integrações..." 
               className={styles.searchInput}
               value={searchQuery}

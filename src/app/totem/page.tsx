@@ -4,6 +4,7 @@ import { useState, FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
 import styles from './totem.module.css';
 import { logAudit } from '@/lib/audit';
+import { sendWhatsApp } from '@/lib/zapi';
 
 export default function TotemPage() {
   const [name, setName] = useState('');
@@ -52,6 +53,11 @@ export default function TotemPage() {
 
       if (!insertError) {
         setIssuedTicket(nextNumber);
+
+        // Zap Automation
+        if (whatsapp && whatsapp.trim()) {
+          sendWhatsApp(whatsapp.trim(), `🌟 *Estação Vórtice* 🌟\n\nSua senha foi retirada com sucesso!\n\nTicket: *#${nextNumber.toString().padStart(2, '0')}*\nCliente: *${name.trim()}*\n\nPor favor, acompanhe o telão. Você será chamado em breve!`);
+        }
 
         // Audit Log
         logAudit(
