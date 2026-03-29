@@ -75,7 +75,7 @@ export default function AuditLogsPage() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase?.removeChannel(channel);
     };
   }, []);
 
