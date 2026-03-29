@@ -149,7 +149,7 @@ export const LeadProvider = ({ children }: { children: ReactNode }) => {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase?.removeChannel(channel);
     };
   }, [fetchDatabase]);
 
