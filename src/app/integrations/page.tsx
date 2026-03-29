@@ -18,7 +18,12 @@ import {
   Lock,
   ChevronRight,
   Loader2,
-  Zap
+  Zap,
+  Edit3,
+  Eye,
+  EyeOff,
+  Info,
+  GitBranch
 } from 'lucide-react';
 import styles from './integrations.module.css';
 import { supabase } from '@/lib/supabase';
@@ -104,8 +109,12 @@ export default function Integrations() {
 
   // Z-API Config State
   const [zapiConfig, setZapiConfig] = useState({
+    name: '',
     instanceId: '',
-    token: ''
+    token: '',
+    clientToken: '',
+    receiveGroups: false,
+    initialFlow: ''
   });
 
   // Webhook Config State
@@ -176,7 +185,14 @@ export default function Integrations() {
       
       data.forEach(item => {
         if (item.provider === 'zapi') {
-          setZapiConfig({ instanceId: item.config.instanceId, token: item.config.token });
+          setZapiConfig({
+            name: item.config.name || '',
+            instanceId: item.config.instanceId || '',
+            token: item.config.token || '',
+            clientToken: item.config.clientToken || '',
+            receiveGroups: item.config.receiveGroups || false,
+            initialFlow: item.config.initialFlow || ''
+          });
         } else if (item.provider === 'whatsapp_meta') {
           setWaConfig({ token: item.config.token, phoneId: item.config.phoneId, wabaId: item.config.wabaId });
         } else if (item.provider === 'meta_ads') {
@@ -287,7 +303,7 @@ export default function Integrations() {
                       autoComplete="new-password"
                       placeholder="EAAG..." 
                       className={styles.premiumInput} 
-                      value={waConfig.token}
+                      value={waConfig.token || ''}
                       onChange={(e) => setWaConfig({...waConfig, token: e.target.value})}
                    />
                    <Lock size={14} className={styles.inputIcon} />
@@ -303,7 +319,7 @@ export default function Integrations() {
                     autoComplete="off"
                     placeholder="Ex: 109283..." 
                     className={styles.premiumInput} 
-                    value={waConfig.phoneId}
+                    value={waConfig.phoneId || ''}
                     onChange={(e) => setWaConfig({...waConfig, phoneId: e.target.value})}
                   />
                 </div>
@@ -315,7 +331,7 @@ export default function Integrations() {
                     autoComplete="off"
                     placeholder="Ex: 987654..." 
                     className={styles.premiumInput} 
-                    value={waConfig.wabaId}
+                    value={waConfig.wabaId || ''}
                     onChange={(e) => setWaConfig({...waConfig, wabaId: e.target.value})}
                   />
                 </div>
@@ -327,7 +343,7 @@ export default function Integrations() {
                   <input type="text" defaultValue="vortice_verify_token_2024" readOnly className={styles.premiumInput} style={{ background: 'rgba(255,255,255,0.03)', cursor: 'not-allowed' }} />
                   <CheckCircle2 size={14} className={styles.inputIcon} color="#25D366" />
                 </div>
-                <small style={{ opacity: 0.5, marginTop: '4px', display: 'block' }}>URL Webhook: https://api.vorticecrm.com/webhooks/whatsapp</small>
+                <small style={{ opacity: 0.5, marginTop: '4px', display: 'block' }}>URL Webhook: https://system-vt.vercel.app/api/webhooks/whatsapp</small>
               </div>
             </div>
 
@@ -406,7 +422,7 @@ export default function Integrations() {
                       autoComplete="new-password"
                       placeholder="EAAO..." 
                       className={styles.premiumInput} 
-                      value={metaConfig.pageToken}
+                      value={metaConfig.pageToken || ''}
                       onChange={(e) => setMetaConfig({...metaConfig, pageToken: e.target.value})}
                    />
                    <Lock size={14} className={styles.inputIcon} />
@@ -422,7 +438,7 @@ export default function Integrations() {
                     autoComplete="off"
                     placeholder="Ex: 1045..." 
                     className={styles.premiumInput} 
-                    value={metaConfig.pageId}
+                    value={metaConfig.pageId || ''}
                     onChange={(e) => setMetaConfig({...metaConfig, pageId: e.target.value})}
                   />
                 </div>
@@ -434,7 +450,7 @@ export default function Integrations() {
                     autoComplete="off"
                     placeholder="Ex: 1784..." 
                     className={styles.premiumInput} 
-                    value={metaConfig.instagramId}
+                    value={metaConfig.instagramId || ''}
                     onChange={(e) => setMetaConfig({...metaConfig, instagramId: e.target.value})}
                   />
                 </div>
@@ -442,7 +458,7 @@ export default function Integrations() {
 
               <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
                  <p style={{ fontSize: '0.8rem', opacity: 0.6, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Globe size={14} /> Webhook Meta: <code>https://api.vorticecrm.com/webhooks/meta</code>
+                    <Globe size={14} /> Webhook Meta: <code>https://system-vt.vercel.app/api/webhooks/meta</code>
                  </p>
               </div>
 
@@ -474,79 +490,126 @@ export default function Integrations() {
           <div className={styles.modalHeader}>
             <div className={styles.modalTitle}>
               <div className={styles.iconBox} style={{ width: 40, height: 40, background: '#11c1d922', color: '#11c1d9' }}>
-                <Zap size={20} />
+                <Edit3 size={20} />
               </div>
               <div>
-                <span style={{ fontSize: '1.1rem', display: 'block' }}>Configuração Z-API</span>
-                <span style={{ fontSize: '0.75rem', opacity: 0.6 }}>WhatsApp Gateway sem burocracia</span>
+                <span style={{ fontSize: '1.1rem', display: 'block', fontWeight: 600 }}>Editar Conexão</span>
+                <span style={{ fontSize: '0.75rem', opacity: 0.6 }}>Gerencie os parâmetros da sua instância Z-API</span>
               </div>
             </div>
             <button className={styles.closeBtn} onClick={() => setActiveModal(null)}><X size={20} /></button>
           </div>
-          <div className={styles.modalBody}>
-            <p style={{ opacity: 0.7, fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-              Utilize as credenciais da sua instância no painel da Z-API para habilitar o envio de mensagens automáticas.
-            </p>
-            <div className={styles.formGrid}>
-               <div className={styles.formGroup}>
-                 <label>ID da Instância (Instance ID)</label>
+          <div className={styles.modalBody} style={{ gap: '1.25rem', display: 'flex', flexDirection: 'column' }}>
+            
+            <div className={styles.formGroup}>
+              <label>Nome da conexão</label>
+              <input 
+                type="text" 
+                placeholder="Ex: Valéria | IA" 
+                className={styles.premiumInput} 
+                value={zapiConfig.name || ''}
+                onChange={(e) => setZapiConfig({...zapiConfig, name: e.target.value})}
+              />
+            </div>
+
+            <div className={styles.formGroup}>
+              <label>Instance ID</label>
+              <input 
+                type="text" 
+                placeholder="ID da sua instância" 
+                className={styles.premiumInput} 
+                value={zapiConfig.instanceId || ''}
+                onChange={(e) => setZapiConfig({...zapiConfig, instanceId: e.target.value})}
+              />
+            </div>
+
+            <div className={styles.formGroup}>
+               <label>Token <span style={{ opacity: 0.5, fontWeight: 400 }}>(vazio = manter)</span></label>
+               <div className={styles.inputWrapper}>
                  <input 
-                    type="text" 
-                    placeholder="Ex: 3B4..." 
-                    autoComplete="off"
-                    className={styles.premiumInput} 
-                    value={zapiConfig.instanceId}
-                    onChange={(e) => setZapiConfig({...zapiConfig, instanceId: e.target.value})}
+                   type="password" 
+                   className={styles.premiumInput} 
+                   value={zapiConfig.token || ''}
+                   onChange={(e) => setZapiConfig({...zapiConfig, token: e.target.value})}
                  />
-               </div>
-               <div className={styles.formGroup}>
-                 <label>Token da Instância (Token)</label>
-                 <input 
-                    type="password" 
-                    placeholder="Seu Token Z-API" 
-                    autoComplete="new-password"
-                    className={styles.premiumInput} 
-                    value={zapiConfig.token}
-                    onChange={(e) => setZapiConfig({...zapiConfig, token: e.target.value})}
-                 />
+                 <Eye size={16} className={styles.inputIcon} style={{ cursor: 'pointer', opacity: 0.5 }} />
                </div>
             </div>
-            <div className={styles.qrContainer} style={{ marginTop: '1.5rem', textAlign: 'center', padding: '1.5rem', background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid var(--border)' }}>
+
+            <div className={styles.formGroup}>
+               <label>Security Token (Client-Token) <span style={{ opacity: 0.5, fontWeight: 400 }}>(vazio = manter)</span></label>
+               <input 
+                 type="text" 
+                 placeholder="Token de segurança da instância" 
+                 className={styles.premiumInput} 
+                 value={zapiConfig.clientToken || ''}
+                 onChange={(e) => setZapiConfig({...zapiConfig, clientToken: e.target.value})}
+               />
+               <small style={{ opacity: 0.4, marginTop: '4px', display: 'block' }}>Encontre em: Painel Z-API → Sua Instância → Security Token</small>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0' }}>
+               <div>
+                 <p style={{ fontSize: '0.95rem', fontWeight: 600 }}>Receber mensagens de grupos</p>
+                 <p style={{ fontSize: '0.8rem', opacity: 0.5 }}>Mensagens de grupos do WhatsApp serão processadas como conversas</p>
+               </div>
+               <label className={styles.switch}>
+                 <input 
+                    type="checkbox" 
+                    checked={zapiConfig.receiveGroups || false}
+                    onChange={(e) => setZapiConfig({...zapiConfig, receiveGroups: e.target.checked})}
+                 />
+                 <span className={`${styles.slider} ${styles.round}`}></span>
+               </label>
+            </div>
+
+            <div style={{ padding: '1rem', background: 'rgba(168, 85, 247, 0.05)', borderRadius: '16px', border: '1px solid rgba(168, 85, 247, 0.1)', display: 'flex', gap: '12px' }}>
+               <div style={{ color: '#a855f7', marginTop: '2px' }}><Info size={18} /></div>
+               <div>
+                 <p style={{ fontSize: '0.85rem', color: '#a855f7', fontWeight: 600, marginBottom: '4px' }}>Configure o webhook no painel Z-API:</p>
+                 <code style={{ background: 'rgba(255,255,255,0.03)', padding: '4px 8px', borderRadius: '6px', fontSize: '0.8rem', display: 'block' }}>
+                   https://system-vt.vercel.app/api/webhooks/z-api
+                 </code>
+               </div>
+            </div>
+
+            <div className={styles.formGroup}>
+              <label>Fluxo Inicial <span style={{ opacity: 0.5, fontWeight: 400 }}>(opcional)</span></label>
+              <div className={styles.inputWrapper}>
+                <input 
+                  type="text" 
+                  placeholder="Selecione um fluxo..." 
+                  className={styles.premiumInput} 
+                  value={zapiConfig.initialFlow || ''}
+                  onChange={(e) => setZapiConfig({...zapiConfig, initialFlow: e.target.value})}
+                />
+                <GitBranch size={16} className={styles.inputIcon} style={{ opacity: 0.5 }} />
+              </div>
+            </div>
+
+            <div className={styles.qrContainer} style={{ marginTop: '0.5rem', textAlign: 'center', padding: '1.5rem', background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid var(--border)' }}>
                {zapiQr ? (
                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
                     <div style={{ background: 'white', padding: '12px', borderRadius: '12px', lineHeight: 0 }}>
-                      <img src={zapiQr} alt="Z-API QR Code" style={{ width: '180px', height: '180px' }} />
+                      <img src={zapiQr} alt="Z-API QR Code" style={{ width: '150px', height: '150px' }} />
                     </div>
-                    <div>
-                      <p style={{ fontSize: '0.9rem', fontWeight: 600 }}>Escaneie com seu WhatsApp</p>
-                      <button 
-                        onClick={fetchZapiQrCode} 
-                        style={{ background: 'none', border: 'none', color: '#11c1d9', fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline', marginTop: '4px' }}
-                      >
-                        Atualizar QR Code
-                      </button>
-                    </div>
-                 </div>
-               ) : (
-                 <div style={{ padding: '1rem' }}>
-                    <p style={{ fontSize: '0.85rem', opacity: 0.6, marginBottom: '1rem' }}>Conecte seu aparelho sem sair do Vórtice.</p>
-                    <button 
-                      className={styles.btnTest} 
-                      onClick={fetchZapiQrCode}
-                      disabled={isFetchingQr}
-                      style={{ margin: '0 auto', background: 'rgba(17, 193, 217, 0.1)', color: '#11c1d9', border: '1px solid #11c1d944' }}
-                    >
-                      {isFetchingQr ? <Loader2 size={16} className={styles.loader} /> : <Zap size={16} />}
-                      {isFetchingQr ? 'Gerando QR...' : 'Gerar QR Code de Conexão'}
+                    <button onClick={fetchZapiQrCode} style={{ background: 'none', border: 'none', color: '#11c1d9', fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline' }}>
+                      Atualizar QR Code
                     </button>
                  </div>
+               ) : (
+                 <button 
+                   className={styles.btnTest} 
+                   onClick={fetchZapiQrCode}
+                   disabled={isFetchingQr}
+                   style={{ margin: '0 auto', background: 'rgba(17, 193, 217, 0.1)', color: '#11c1d9', border: '1px solid #11c1d944' }}
+                 >
+                   {isFetchingQr ? <Loader2 size={16} className={styles.loader} /> : <Zap size={16} />}
+                   {isFetchingQr ? 'Gerando QR...' : 'Gerar QR Code de Conexão'}
+                 </button>
                )}
             </div>
 
-            <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(17, 193, 217, 0.05)', borderRadius: '12px', border: '1px solid rgba(17, 193, 217, 0.1)' }}>
-               <span style={{ fontSize: '0.85rem', color: '#11c1d9', fontWeight: 600 }}>Dica de Conexão:</span>
-               <p style={{ fontSize: '0.8rem', opacity: 0.7, marginTop: '5px' }}>O status deve estar como "CONNECTED" no painel Z-API para que o sistema funcione corretamente.</p>
-            </div>
           </div>
           <div className={styles.modalFooter}>
             <button className={styles.btnCancel} onClick={() => setActiveModal(null)}>Cancelar</button>
@@ -556,7 +619,7 @@ export default function Integrations() {
                 style={{ background: '#11c1d9', color: 'black' }}
                 disabled={saveStatus !== 'idle'}
             >
-               {saveStatus === 'saving' ? 'Salvando...' : saveStatus === 'success' ? 'Conectado!' : 'Salvar e Ativar Z-API'}
+               {saveStatus === 'saving' ? 'Salvando...' : saveStatus === 'success' ? 'Salvo!' : 'Salvar Alterações'}
             </button>
           </div>
         </>
@@ -591,18 +654,18 @@ export default function Integrations() {
                     placeholder="https://suaapi.com/webhooks/vortice" 
                     autoComplete="off"
                     className={styles.premiumInput} 
-                    value={webhookConfig.url}
+                    value={webhookConfig.url || ''}
                     onChange={(e) => setWebhookConfig({...webhookConfig, url: e.target.value})}
                  />
                </div>
                <div className={styles.formGroup}>
-                 <label>Secret Token (X-Hub-Signature)</label>
+                 <label>Security Token / Secret</label>
                  <input 
                     type="password" 
                     placeholder="Sua chave de segurança" 
                     autoComplete="new-password"
                     className={styles.premiumInput} 
-                    value={webhookConfig.secret}
+                    value={webhookConfig.secret || ''}
                     onChange={(e) => setWebhookConfig({...webhookConfig, secret: e.target.value})}
                  />
                  <small style={{ opacity: 0.5, marginTop: '4px', display: 'block' }}>Usado para assinar o cabeçalho e validar a origem do POST.</small>
