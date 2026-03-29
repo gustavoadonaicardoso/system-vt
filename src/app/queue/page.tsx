@@ -215,7 +215,7 @@ export default function QueuePage() {
       return;
     }
 
-    const { error } = await supabase?.from('queue_tickets').delete().neq('id', '0') || { error: 'Supabase client missing' };
+    const { error } = await supabase?.from('queue_tickets').delete().gt('number', 0) || { error: 'Supabase client missing' };
 
     if (!error) {
       logAudit(user, 'SETTINGS_UPDATE', 'Fila de senhas reiniciada completamente por ação administrativa.');
