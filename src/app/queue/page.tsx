@@ -190,7 +190,7 @@ export default function QueuePage() {
 
           <div style={{ marginTop: '20px', borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
             <button className={styles.dangerButton} onClick={resetQueue}>
-              Zerar Fila Atual
+              Reiniciar Senhas (Zerar)
             </button>
           </div>
         </section>

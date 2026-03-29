@@ -42,6 +42,9 @@ export default function DisplayPage() {
       
       // The rest is history, excluding the current one if it's there
       setHistory(data.filter(t => t.id !== calling.id));
+    } else {
+      setCurrentTicket(null);
+      setHistory([]);
     }
   };
 
