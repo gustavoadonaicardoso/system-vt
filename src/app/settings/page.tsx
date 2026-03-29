@@ -9,14 +9,25 @@ import {
   Save,
   Globe,
   Lock,
-  MessageSquare
+  MessageSquare,
+  ListCheck,
+  Ticket
 } from 'lucide-react';
 import styles from './settings.module.css';
 
-type TabType = 'profile' | 'company' | 'preferences' | 'billing';
+type TabType = 'profile' | 'company' | 'preferences' | 'billing' | 'senhas';
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('profile');
+
+  // Senhas States
+  const [queueTotalDesks, setQueueTotalDesks] = useState(5);
+  const [queueLogoUrl, setQueueLogoUrl] = useState('');
+  const [queueBannerUrl, setQueueBannerUrl] = useState('');
+  const [queuePrimaryColor, setQueuePrimaryColor] = useState('#3b82f6');
+  const [queueSecondaryColor, setQueueSecondaryColor] = useState('#8b5cf6');
+  const [welcomeText, setWelcomeText] = useState('Bem-vindo ao nosso atendimento');
+  const [isSaving, setIsSaving] = useState(false);
 
   // Perfil States
   const [profileName, setProfileName] = useState('Gustavo Admin');
@@ -157,7 +168,66 @@ export default function SettingsPage() {
           </div>
         );
 
-      case 'billing':
+      case 'senhas':
+        return (
+          <div className={styles.panel}>
+            <h3 className={styles.panelTitle}>Painel de Senhas (White Label)</h3>
+            
+            <div className={styles.formGrid}>
+              <div className={styles.formGroup}>
+                <label>Quantidade de Guichês</label>
+                <input 
+                  type="number" 
+                  className={styles.input} 
+                  value={queueTotalDesks} 
+                  onChange={e => setQueueTotalDesks(parseInt(e.target.value))} 
+                />
+                <p style={{ fontSize: '0.8rem', opacity: 0.5, marginTop: '4px' }}>Define o limite de guichês no painel de controle.</p>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label>Cor Primária (Painéis)</label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <input type="color" className={styles.input} style={{ width: '60px', padding: '2px' }} value={queuePrimaryColor} onChange={e => setQueuePrimaryColor(e.target.value)} />
+                  <input type="text" className={styles.input} value={queuePrimaryColor} onChange={e => setQueuePrimaryColor(e.target.value)} />
+                </div>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label>Cor Secundária</label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <input type="color" className={styles.input} style={{ width: '60px', padding: '2px' }} value={queueSecondaryColor} onChange={e => setQueueSecondaryColor(e.target.value)} />
+                  <input type="text" className={styles.input} value={queueSecondaryColor} onChange={e => setQueueSecondaryColor(e.target.value)} />
+                </div>
+              </div>
+
+              <div className={`${styles.formGroup} ${styles.fullWidth}`}>
+                <label>Texto de Boas-vindas (Painel Público)</label>
+                <input type="text" className={styles.input} value={welcomeText} onChange={e => setWelcomeText(e.target.value)} />
+              </div>
+
+              <div className={`${styles.formGroup} ${styles.fullWidth}`}>
+                <label>URL do Banner Publicitário (Opcional)</label>
+                <input type="text" className={styles.input} value={queueBannerUrl} onChange={e => setQueueBannerUrl(e.target.value)} placeholder="https://..." />
+                <p style={{ fontSize: '0.8rem', opacity: 0.5, marginTop: '4px' }}>Exibido na lateral ou rodapé do telão público.</p>
+              </div>
+
+              <div className={`${styles.formGroup} ${styles.fullWidth}`}>
+                <label>URL do Logo Específico (Opcional)</label>
+                <input type="text" className={styles.input} value={queueLogoUrl} onChange={e => setQueueLogoUrl(e.target.value)} placeholder="https://..." />
+                <p style={{ fontSize: '0.8rem', opacity: 0.5, marginTop: '4px' }}>Se vazio, usará o logo padrão do sistema.</p>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '20px', padding: '20px', background: 'rgba(59, 130, 246, 0.05)', borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.1)' }}>
+              <p style={{ fontSize: '0.9rem', marginBottom: '10px' }}><strong>Dica:</strong> Você pode usar imagens do seu próprio logo para que o sistema de senhas combine perfeitamente com a identidade visual da sua marca.</p>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <a href="/display" target="_blank" style={{ fontSize: '0.85rem', color: '#3b82f6', textDecoration: 'underline' }}>Pré-visualizar Painel</a>
+                <a href="/totem" target="_blank" style={{ fontSize: '0.85rem', color: '#3b82f6', textDecoration: 'underline' }}>Pré-visualizar Totem</a>
+              </div>
+            </div>
+          </div>
+        );
         return (
           <div className={styles.panel}>
             <h3 className={styles.panelTitle}>Assinatura & Cobrança</h3>
@@ -239,6 +309,12 @@ export default function SettingsPage() {
             onClick={() => setActiveTab('billing')}
           >
             <CreditCard size={18} /> Assinatura & Faturas
+          </button>
+          <button 
+            className={`${styles.navItem} ${activeTab === 'senhas' ? styles.navItemActive : ''}`} 
+            onClick={() => setActiveTab('senhas')}
+          >
+            <Ticket size={18} /> Gestão de Senhas
           </button>
         </div>
 

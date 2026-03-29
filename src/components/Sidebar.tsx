@@ -18,7 +18,8 @@ import {
   UserCog,
   BarChart3,
   Briefcase,
-  Calendar
+  Calendar,
+  Ticket
 } from 'lucide-react';
 import styles from './Sidebar.module.css';
 import { useSidebar } from '@/components/SidebarProvider';
@@ -45,6 +46,7 @@ const Sidebar = () => {
     { name: 'Leads', icon: Users, path: '/leads' },
     { name: 'Relatórios', icon: BarChart3, path: '/relatorios' },
     { name: 'Agendamento', icon: Calendar, path: '/scheduling' },
+    { name: 'Senhas', icon: Ticket, path: '/queue' },
     
     { name: 'Equipe', icon: UserCog, path: '/users' },
     { name: 'Automações', icon: Zap, path: '/automations' },

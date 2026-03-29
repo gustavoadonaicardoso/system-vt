@@ -14,13 +14,16 @@ import { SidebarProvider } from "@/components/SidebarProvider";
 export default function RootLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLoginPage = pathname === '/login';
+  const isDisplayPage = pathname === '/display';
+  const isTotemPage = pathname === '/totem';
+  const isPublicPage = isLoginPage || isDisplayPage || isTotemPage;
 
   return (
     <AuthProvider>
       <ThemeProvider>
         <SidebarProvider>
           <LeadProvider>
-            {isLoginPage ? (
+            {isPublicPage ? (
               <main>{children}</main>
             ) : (
               <div className={styles.layoutContainer}>
