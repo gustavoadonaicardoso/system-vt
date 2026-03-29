@@ -32,6 +32,7 @@ import { useLeads } from '@/context/LeadContext';
 import { useAuth } from '@/context/AuthContext';
 import styles from './messages.module.css';
 import { motion, AnimatePresence } from 'framer-motion';
+import { sendWhatsApp } from '@/lib/zapi';
 
 // Mock Lists
 const QUICK_MESSAGES = [
@@ -241,6 +242,15 @@ function MessagesContent() {
       const currentMessages = prev[selectedChatId] || [];
       return { ...prev, [selectedChatId]: [...currentMessages, newMessage] };
     });
+
+    const targetLead = leads.find(l => l.id === selectedChatId);
+    if (targetLead && targetLead.phone) {
+       sendWhatsApp(targetLead.phone, finalMsg).then(res => {
+         if (!res?.success) {
+           console.error('Falha ao enviar via Z-API:', res?.error);
+         }
+       });
+    }
 
     setInputText('');
     setShowEmoji(false);
