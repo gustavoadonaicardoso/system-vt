@@ -18,6 +18,9 @@ export type Lead = {
   lastMsg: string;
   value?: string;
   days?: number;
+  source?: string;
+  handlingTime?: number; // in minutes
+  waitTime?: number; // in minutes
 };
 
 export type PipelineStage = {
@@ -94,12 +97,15 @@ export const LeadProvider = ({ children }: { children: ReactNode }) => {
           cpfCnpj: l.cpf_cnpj || '',
           value: `R$ ${(l.value || 0).toLocaleString('pt-BR')}`,
           pipelineStage: l.stage_id,
-          tags: ['Banco Dados'],
+          tags: l.tags || ['Lead'],
           channels: ['whatsapp'],
           status: 'Ativo',
           color: '#3b82f6',
           lastMsg: 'Hoje',
-          entryDate: new Date(l.created_at).toLocaleDateString('pt-BR')
+          entryDate: new Date(l.created_at).toLocaleDateString('pt-BR'),
+          source: l.source || 'Site',
+          waitTime: l.wait_time_minutes || 0,
+          handlingTime: l.handling_time_minutes || 0
         }));
 
         setLeads(mappedLeads);
@@ -188,6 +194,8 @@ export const LeadProvider = ({ children }: { children: ReactNode }) => {
         const rawValue = String(updates.value || '0');
         dbUpdates.value = parseFloat(rawValue.replace(/[^0-9,-]+/g,"").replace(",",".") || "0");
       }
+      
+      if (updates.pipelineStage) dbUpdates.stage_id = updates.pipelineStage;
       
       await supabase.from('leads').update(dbUpdates).eq('id', leadId);
     }

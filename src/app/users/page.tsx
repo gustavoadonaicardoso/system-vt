@@ -22,6 +22,7 @@ import {
 import styles from './users.module.css';
 
 import { supabase } from '@/lib/supabase';
+import { useTheme } from '@/components/ThemeProvider';
 
 // Real Data Types
 type Role = 'ADMIN' | 'MANAGER' | 'SELLER';
@@ -31,45 +32,77 @@ interface Permissions {
   dashboard: { view: boolean; kpis: boolean; funnel: boolean; activities: boolean };
   pipeline: { view: boolean; move: boolean; edit: boolean; manageStages: boolean };
   leads: { view: boolean; edit: boolean; delete: boolean; tags: boolean; export: boolean };
-  messages: { view: boolean; send: boolean; start: boolean };
+  messages: { view: boolean; send: boolean; start: boolean; templates: boolean; signatures: boolean };
   automations: { view: boolean; manage: boolean };
   integrations: { view: boolean; manage: boolean };
-  team: { view: boolean; manage: boolean };
+  team: { view: boolean; manage: boolean; editPermissions: boolean };
+  admin: { banners: boolean; projects: boolean; settings: boolean };
 }
 
 const DEFAULT_PERMISSIONS: Permissions = {
   dashboard: { view: true, kpis: true, funnel: true, activities: true },
   pipeline: { view: true, move: true, edit: true, manageStages: true },
   leads: { view: true, edit: true, delete: true, tags: true, export: true },
-  messages: { view: true, send: true, start: true },
+  messages: { view: true, send: true, start: true, templates: true, signatures: true },
   automations: { view: true, manage: true },
   integrations: { view: true, manage: true },
-  team: { view: true, manage: true },
+  team: { view: true, manage: true, editPermissions: true },
+  admin: { banners: true, projects: true, settings: true },
 };
 
 const SELLER_PERMISSIONS: Permissions = {
   dashboard: { view: true, kpis: true, funnel: false, activities: false },
   pipeline: { view: true, move: true, edit: true, manageStages: false },
   leads: { view: true, edit: true, delete: false, tags: true, export: false },
-  messages: { view: true, send: true, start: true },
+  messages: { view: true, send: true, start: true, templates: false, signatures: true },
   automations: { view: false, manage: false },
   integrations: { view: false, manage: false },
-  team: { view: false, manage: false },
+  team: { view: false, manage: false, editPermissions: false },
+  admin: { banners: false, projects: false, settings: false },
 };
 
 export default function UsersPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'info' | 'permissions'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'permissions' | 'updates' | 'personalization'>('info');
   const [isEditing, setIsEditing] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [systemUpdates, setSystemUpdates] = useState<any[]>([]);
+
+  const { config, refreshConfig } = useTheme();
+
+  // Branding states
+  const [primaryColor, setPrimaryColor] = useState(config.primary_color);
+  const [secondaryColor, setSecondaryColor] = useState(config.secondary_color);
+  const [logoUrl, setLogoUrl] = useState(config.logo_url);
+  const [faviconUrl, setFaviconUrl] = useState(config.favicon_url);
+  const [appName, setAppName] = useState(config.app_name);
+
+  const handleFileSelect = (type: 'logo' | 'favicon', e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Optional size/type check could go here
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const b64 = event.target?.result as string;
+      if (type === 'logo') setLogoUrl(b64);
+      else setFaviconUrl(b64);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Update form
+  const [upAction, setUpAction] = useState('');
+  const [upTarget, setUpTarget] = useState('');
 
   // New user form
   const [newUserName, setNewUserName] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserRole, setNewUserRole] = useState<Role>('SELLER');
+  const [newUserPermissions, setNewUserPermissions] = useState<Permissions>(SELLER_PERMISSIONS);
 
   // Local form states
   const [name, setName] = useState('');
@@ -77,10 +110,6 @@ export default function UsersPage() {
   const [role, setRole] = useState<Role>('SELLER');
   const [status, setStatus] = useState<Status>('ACTIVE');
   const [userPermissions, setUserPermissions] = useState<any>(null);
-
-  React.useEffect(() => {
-    fetchUsers();
-  }, []);
 
   const fetchUsers = async () => {
     if (!supabase) return;
@@ -94,6 +123,17 @@ export default function UsersPage() {
     }
     setLoading(false);
   };
+
+  const fetchSystemUpdates = async () => {
+    if (!supabase) return;
+    const { data } = await supabase.from('system_updates').select('*').order('created_at', { ascending: false });
+    if (data) setSystemUpdates(data);
+  };
+
+  React.useEffect(() => {
+    fetchUsers();
+    fetchSystemUpdates();
+  }, []);
 
   const selectedUser = users.find(u => u.id === selectedUserId);
 
@@ -112,11 +152,21 @@ export default function UsersPage() {
     setUserPermissions((prev: any) => ({
       ...prev,
       [category]: {
-        ...(prev[category] as any),
+         ...(prev[category] as any),
         [field]: !(prev[category] as any)[field]
       }
     }));
     setIsEditing(true);
+  };
+
+  const toggleNewUserPermission = (category: keyof Permissions, field: string) => {
+    setNewUserPermissions((prev: any) => ({
+      ...prev,
+      [category]: {
+        ...(prev[category] as any),
+        [field]: !(prev[category] as any)[field]
+      }
+    }));
   };
 
   const saveChanges = async () => {
@@ -138,12 +188,45 @@ export default function UsersPage() {
     setLoading(false);
   };
 
+  const categoryMap: any = {
+    dashboard: { name: 'Painel Geral', icon: LayoutDashboard, color: '#3b82f6' },
+    pipeline: { name: 'Funil & Kanban', icon: Kanban, color: '#8b5cf6' },
+    leads: { name: 'Gestão de Lead', icon: Users, color: '#10b981' },
+    messages: { name: 'Central Mensagens', icon: MessageSquare, color: '#f59e0b' },
+    automations: { name: 'Robôs/Automações', icon: Zap, color: '#ef4444' },
+    integrations: { name: 'Canais/API', icon: Blocks, color: '#3b82f6' },
+    team: { name: 'Gestão de Equipe', icon: UserCog, color: '#10b981' },
+    admin: { name: 'Config. Avançadas', icon: ShieldAlert, color: '#ef4444' }
+  };
+
+  const fieldMap: any = {
+    view: 'Visualizar Módulo',
+    kpis: 'Ver Indicadores',
+    funnel: 'Ver Funil de Vendas',
+    activities: 'Logs de Atividade',
+    move: 'Mover no Kanban',
+    edit: 'Editar Registros',
+    manageStages: 'Criar Etapas',
+    delete: 'Excluir Registros',
+    tags: 'Gerenciar Tags',
+    export: 'Exportar Lead',
+    send: 'Enviar Mensagem',
+    start: 'Novo Chat',
+    templates: 'Gerenciar Modelos',
+    signatures: 'Usar Assinatura',
+    manage: 'Acesso Total',
+    editPermissions: 'Alterar Permissões',
+    banners: 'Gerenciar Banners',
+    projects: 'Gerenciar Projetos',
+    settings: 'Config. Sistema'
+  };
+
   const handleCreateMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUserName || !newUserEmail || !newUserPassword || !supabase) return;
 
     setLoading(true);
-    const perms = newUserRole === 'ADMIN' ? DEFAULT_PERMISSIONS : SELLER_PERMISSIONS;
+    const perms = newUserPermissions;
     
     const { data, error } = await supabase.from('profiles').insert([{
       name: newUserName,
@@ -167,8 +250,70 @@ export default function UsersPage() {
     setLoading(false);
   };
 
+  const handleDeleteMember = async () => {
+    if (!selectedUserId || !supabase) return;
+    
+    if (window.confirm(`Tem certeza que deseja remover o membro ${selectedUser?.name}? Esta ação não pode ser desfeita.`)) {
+      setLoading(true);
+      const { error } = await supabase.from('profiles').delete().eq('id', selectedUserId);
+      
+      if (!error) {
+        setSelectedUserId(null);
+        await fetchUsers();
+      } else {
+        alert("Erro ao remover membro: " + error.message);
+      }
+      setLoading(false);
+    }
+  };
+
   const createNewMember = () => {
      setIsAddModalOpen(true);
+  };
+
+  const handleCreateUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!upAction || !supabase || !selectedUser) return;
+
+    setLoading(true);
+    const { error } = await supabase.from('system_updates').insert([{
+      user_name: selectedUser.name,
+      action: upAction,
+      target: upTarget,
+      icon_name: 'TrendingUp'
+    }]);
+
+    if (!error) {
+      setUpAction('');
+      setUpTarget('');
+      await fetchSystemUpdates();
+    }
+    setLoading(false);
+  };
+
+  const handleDeleteUpdate = async (id: string) => {
+     if (!supabase) return;
+     await supabase.from('system_updates').delete().eq('id', id);
+     await fetchSystemUpdates();
+  };
+
+  const saveBrandingConfig = async () => {
+    if (!supabase) return;
+    setLoading(true);
+    const { error } = await supabase.from('system_config').update({
+       primary_color: primaryColor,
+       secondary_color: secondaryColor,
+       logo_url: logoUrl,
+       favicon_url: faviconUrl,
+       app_name: appName,
+       updated_at: new Date()
+    }).eq('id', 'branding');
+
+    if (!error) {
+       await refreshConfig();
+       alert("Identidade Visual atualizada com sucesso!");
+    }
+    setLoading(false);
   };
 
   return (
@@ -244,6 +389,18 @@ export default function UsersPage() {
                 >
                   Permissões de Acesso
                 </button>
+                <button 
+                  className={`${styles.tabBtn} ${activeTab === 'updates' ? styles.tabActive : ''}`}
+                  onClick={() => setActiveTab('updates')}
+                >
+                  Emitir Atualização
+                </button>
+                <button 
+                  className={`${styles.tabBtn} ${activeTab === 'personalization' ? styles.tabActive : ''}`}
+                  onClick={() => setActiveTab('personalization')}
+                >
+                  Personalização
+                </button>
               </div>
 
               <div className={styles.editorScroller}>
@@ -294,36 +451,18 @@ export default function UsersPage() {
                         <option value="INACTIVE">Inativo</option>
                       </select>
                     </div>
+
+                    <div className={styles.dangerZone}>
+                      <h4>Zona de Perigo</h4>
+                      <p>A remoção de um membro é permanente e remove todo o seu acesso ao CRM.</p>
+                      <button className={styles.deleteBtn} onClick={handleDeleteMember} disabled={loading}>
+                        <Trash2 size={18} /> Excluir Membro da Equipe
+                      </button>
+                    </div>
                   </div>
-                ) : (
+                ) : activeTab === 'permissions' ? (
                   <div className={styles.permissionsLayoutGrid}>
                     {Object.entries(userPermissions).map(([category, items]) => {
-                       const categoryMap: any = {
-                        dashboard: { name: 'Dashboard / Painel', icon: LayoutDashboard, color: '#3b82f6' },
-                        pipeline: { name: 'Funil de Vendas', icon: Kanban, color: '#8b5cf6' },
-                        leads: { name: 'Gestão de Leads', icon: Users, color: '#10b981' },
-                        messages: { name: 'Mensagens / Chat', icon: MessageSquare, color: '#f59e0b' },
-                        automations: { name: 'Automações', icon: Zap, color: '#ef4444' },
-                        integrations: { name: 'Integrações', icon: Blocks, color: '#3b82f6' },
-                        team: { name: 'Equipe / Membros', icon: UserCog, color: '#10b981' }
-                      };
-
-                      const fieldMap: any = {
-                        view: 'Visualizar Módulo',
-                        kpis: 'Ver Indicadores (KPIs)',
-                        funnel: 'Ver Relatório de Funil',
-                        activities: 'Ver Logs de Atividade',
-                        move: 'Mover Cards no Funil',
-                        edit: 'Editar Informações',
-                        manageStages: 'Gerenciar Etapas',
-                        delete: 'Excluir Registros',
-                        tags: 'Gerenciar Etiquetas',
-                        export: 'Exportar Dados (.csv)',
-                        send: 'Enviar Mensagens',
-                        start: 'Iniciar Novos Chats',
-                        manage: 'Configuração Total'
-                      };
-
                       const cat = categoryMap[category] || { name: category, icon: ShieldAlert, color: '#ccc' };
 
                       return (
@@ -352,6 +491,149 @@ export default function UsersPage() {
                         </div>
                       );
                     })}
+                  </div>
+                ) : activeTab === 'updates' ? (
+                  <div className={styles.updatesManager}>
+                    <div className={styles.updatesFormCard}>
+                       <h4>Nova Atualização no Dashboard</h4>
+                       <p>Esta atualização aparecerá para todos os usuários em "Atualizações Recentes".</p>
+                       <form onSubmit={handleCreateUpdate} className={styles.miniForm}>
+                          <div className={styles.inputGroup}>
+                             <label>Ação realizada</label>
+                             <input 
+                               placeholder="Ex: Atualizou os workflows de" 
+                               value={upAction} 
+                               onChange={e => setUpAction(e.target.value)} 
+                               required
+                             />
+                          </div>
+                          <div className={styles.inputGroup}>
+                             <label>Alvo / Destino</label>
+                             <input 
+                               placeholder="Ex: Lead Comercial" 
+                               value={upTarget} 
+                               onChange={e => setUpTarget(e.target.value)} 
+                             />
+                          </div>
+                          <button type="submit" className={styles.broadcastBtn} disabled={loading}>
+                             Emitir para o Sistema
+                          </button>
+                       </form>
+                    </div>
+
+                    <div className={styles.historyList}>
+                       <h4>Histórico de Emissões</h4>
+                       {systemUpdates.map(up => (
+                         <div key={up.id} className={styles.historyItem}>
+                            <div className={styles.historyMeta}>
+                               <strong>{up.action} {up.target}</strong>
+                               <span>por {up.user_name} • {new Date(up.created_at).toLocaleString()}</span>
+                            </div>
+                            <button className={styles.miniDelete} onClick={() => handleDeleteUpdate(up.id)}>
+                               <Trash2 size={14} />
+                            </button>
+                         </div>
+                       ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className={styles.personalizationSection}>
+                    <div className={styles.brandingHeader}>
+                       <h4>Identidade Visual e Marca</h4>
+                       <p>Personalize as cores e logotipos de todo o sistema sem precisar de código.</p>
+                    </div>
+
+                    <div className={styles.brandingGrid}>
+                       <div className={styles.formGroup}>
+                          <label>Cor Primária</label>
+                          <div className={styles.colorRow}>
+                            <input type="color" value={primaryColor} onChange={e => setPrimaryColor(e.target.value)} />
+                            <input type="text" value={primaryColor} onChange={e => setPrimaryColor(e.target.value)} />
+                          </div>
+                       </div>
+                       <div className={styles.formGroup}>
+                          <label>Cor Secundária</label>
+                          <div className={styles.colorRow}>
+                            <input type="color" value={secondaryColor} onChange={e => setSecondaryColor(e.target.value)} />
+                            <input type="text" value={secondaryColor} onChange={e => setSecondaryColor(e.target.value)} />
+                          </div>
+                       </div>
+                       <div className={styles.formGroup} style={{ gridColumn: 'span 2' }}>
+                          <label>Nome do Aplicativo (Título do Site)</label>
+                          <input className={styles.input} value={appName} onChange={e => setAppName(e.target.value)} placeholder="Vórtice CRM" />
+                       </div>
+
+                       <div className={styles.formGroup} style={{ gridColumn: 'span 2' }}>
+                          <label>Logotipo do CRM</label>
+                          <div className={styles.fileInputRow}>
+                             <button className={styles.fileSelectBtn} onClick={() => document.getElementById('logo-upload')?.click()}>
+                                <Plus size={16} /> Selecionar Arquivo
+                             </button>
+                             <input className={styles.input} value={logoUrl} onChange={e => setLogoUrl(e.target.value)} placeholder="Ou cole a URL da imagem aqui" />
+                             <input id="logo-upload" type="file" accept="image/*" hidden onChange={(e) => handleFileSelect('logo', e)} />
+                          </div>
+                          <span className={styles.idealSizeHint}>Tamanho ideal: 400x120px (Proporção horizontal)</span>
+                       </div>
+
+                       <div className={styles.formGroup} style={{ gridColumn: 'span 2' }}>
+                          <label>Favicon (Ícone do Navegador)</label>
+                          <div className={styles.fileInputRow}>
+                             <button className={styles.fileSelectBtn} onClick={() => document.getElementById('favicon-upload')?.click()}>
+                                <Plus size={16} /> Selecionar Arquivo
+                             </button>
+                             <input className={styles.input} value={faviconUrl} onChange={e => setFaviconUrl(e.target.value)} placeholder="Ou cole a URL do favicon aqui" />
+                             <input id="favicon-upload" type="file" accept="image/*" hidden onChange={(e) => handleFileSelect('favicon', e)} />
+                          </div>
+                          <span className={styles.idealSizeHint}>Tamanho ideal: 32x32px ou 64x64px (.png ou .ico)</span>
+                       </div>
+                    </div>
+
+                    <div className={styles.brandingPreview}>
+                       <div className={styles.brandingHeaderSmall}>
+                          <LayoutDashboard size={18} color="#3b82f6" />
+                          <h5>Logo & Favicon Preview</h5>
+                       </div>
+                       
+                       <div className={styles.previewBox}>
+                          <div className={styles.logoPreviewArea}>
+                             {logoUrl ? (
+                               <img 
+                                 src={logoUrl} 
+                                 alt="Preview Logo" 
+                                 onError={(e) => (e.currentTarget.style.display = 'none')} 
+                               />
+                             ) : (
+                               <div className={styles.emptyState}>
+                                  <Users size={32} />
+                                  <span>Logotipo não definido</span>
+                               </div>
+                             )}
+                          </div>
+                          
+                          <div className={styles.faviconPreviewArea}>
+                             {faviconUrl ? (
+                               <img 
+                                 src={faviconUrl} 
+                                 alt="Preview Favicon" 
+                                 onError={(e) => (e.currentTarget.style.display = 'none')}
+                               />
+                             ) : (
+                               <div className={styles.emptyFavicon}>
+                                  <LayoutDashboard size={14} />
+                               </div>
+                             )}
+                             <span>Favicon</span>
+                          </div>
+                       </div>
+                    </div>
+
+                    <div className={styles.brandingInstructions}>
+                       <p><strong>Dica de Host:</strong> Para usar imagens personalizadas, você pode fazer upload em serviços como Imgur, Cloudinary ou no próprio Supabase Storage e colar o link público aqui.</p>
+                    </div>
+
+                    <button className={styles.saveBrandingBtn} onClick={saveBrandingConfig} disabled={loading}>
+                       {loading ? 'Salvando...' : 'Salvar Alterações de Marca'}
+                    </button>
                   </div>
                 )}
               </div>
@@ -423,6 +705,37 @@ export default function UsersPage() {
                     required
                     minLength={6}
                   />
+                </div>
+
+                <div className={styles.permissionSectionTitle}>
+                  <h4>Permissões do Novo Membro</h4>
+                  <p>Defina o que este usuário poderá ver e fazer</p>
+                </div>
+
+                <div className={styles.modalPermissionsGrid}>
+                   {Object.entries(newUserPermissions).map(([category, items]) => {
+                      const cat = categoryMap[category] || { name: category, icon: ShieldAlert, color: '#ccc' };
+                      return (
+                        <div key={category} className={styles.miniPermissionCard}>
+                          <div className={styles.miniCardHeader}>
+                            <cat.icon size={12} color={cat.color} />
+                            <span>{cat.name}</span>
+                          </div>
+                          <div className={styles.miniSwitchList}>
+                            {Object.entries(items as any).map(([field, value]) => (
+                               <label key={field} className={styles.miniSwitchRow}>
+                                 <span className={styles.miniFieldName}>{fieldMap[field] || field}</span>
+                                 <input 
+                                   type="checkbox" 
+                                   checked={value as boolean}
+                                   onChange={() => toggleNewUserPermission(category as keyof Permissions, field)}
+                                 />
+                               </label>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                   })}
                 </div>
                 
                 <div className={styles.modalActions}>

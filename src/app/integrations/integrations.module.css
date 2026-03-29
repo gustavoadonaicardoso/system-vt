@@ -469,6 +469,71 @@
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.loader {
+  animation: spin 1s linear infinite;
+}
+
+/* Official WhatsApp Integration Classes */
+.alertBox {
+  background: rgba(37, 211, 102, 0.05);
+  border: 1px solid rgba(37, 211, 102, 0.2);
+  padding: 1rem;
+  border-radius: 12px;
+}
+
+.alertBox p {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--foreground);
+  opacity: 0.8;
+}
+
+.formGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputIcon {
+  position: absolute;
+  right: 1rem;
+  opacity: 0.4;
+}
+
+.premiumInput {
+  width: 100%;
+  padding: 12px 16px;
+  padding-right: 2.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel-bg);
+  color: var(--foreground);
+  font-size: 0.95rem;
+  transition: all 0.2s;
+}
+
+.premiumInput:focus {
+  outline: none;
+  border-color: #25D366;
+  box-shadow: 0 0 0 4px rgba(37, 211, 102, 0.1);
+}
+
+.btnTest:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-color: var(--foreground) !important;
+}
+
 @media (max-width: 1024px) {
   .grid {
     grid-template-columns: repeat(2, 1fr);

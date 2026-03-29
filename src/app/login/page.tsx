@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import styles from './login.module.css';
 import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -20,20 +21,36 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!supabase) {
+      setError('Erro de configuração do sistema.');
+      return;
+    }
+
     setIsLoading(true);
     setError('');
 
-    // Simulate authentication with specific credentials
-    setTimeout(() => {
-      if (email === 'gustavoadonai@admin.com' && password === 'd*b234Wt2gFFRk') {
-        login('root_auth_token_vortice_2026');
-      } else {
-        setError('Credenciais incorretas. Verifique seu e-mail e senha.');
+    try {
+      const { data, error: queryError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('email', email)
+        .eq('password', password)
+        .eq('status', 'ACTIVE')
+        .single();
+
+      if (queryError || !data) {
+        setError('E-mail ou senha incorretos, ou conta desativada.');
         setIsLoading(false);
+        return;
       }
-    }, 1800);
+
+      login(data);
+    } catch (err) {
+      setError('Falha na autenticação. Tente novamente.');
+      setIsLoading(false);
+    }
   };
 
   return (

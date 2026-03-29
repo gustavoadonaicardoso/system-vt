@@ -17,15 +17,20 @@ import {
   ShieldCheck,
   UserCog,
   BarChart3,
-  Briefcase
+  Briefcase,
+  Calendar
 } from 'lucide-react';
 import styles from './Sidebar.module.css';
 import { useSidebar } from '@/components/SidebarProvider';
+import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/components/ThemeProvider';
 
 
 const Sidebar = () => {
   const pathname = usePathname();
   const { isCollapsed, toggleSidebar, isMobileOpen, closeMobileMenu } = useSidebar();
+  const { user, logout } = useAuth();
+  const { config } = useTheme();
   const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
@@ -39,6 +44,7 @@ const Sidebar = () => {
     { name: 'Pipeline', icon: Kanban, path: '/pipeline' },
     { name: 'Leads', icon: Users, path: '/leads' },
     { name: 'Relatórios', icon: BarChart3, path: '/relatorios' },
+    { name: 'Agendamento', icon: Calendar, path: '/scheduling' },
     
     { name: 'Equipe', icon: UserCog, path: '/users' },
     { name: 'Automações', icon: Zap, path: '/automations' },
@@ -62,10 +68,16 @@ const Sidebar = () => {
       <aside className={`${styles.sidebar} ${isCollapsed ? styles.collapsed : ''} ${isMobileOpen ? styles.mobileOpen : ''}`}>
         <div className={styles.logoArea}>
           {!isCollapsed && (
-            <>
-              <img src="/logo.png" alt="Vórtice Tecnologia" className={`${styles.imageLogo} ${styles.logoLight}`} />
-              <img src="/logo-dark.png" alt="Vórtice Tecnologia" className={`${styles.imageLogo} ${styles.logoDark}`} />
-            </>
+            <div className={styles.logoContainer}>
+              {config.logo_url ? (
+                <img src={config.logo_url} alt={config.app_name} className={styles.imageLogo} />
+              ) : (
+                <>
+                  <img src="/logo.png" alt="Vórtice Tecnologia" className={`${styles.imageLogo} ${styles.logoLight}`} />
+                  <img src="/logo-dark.png" alt="Vórtice Tecnologia" className={`${styles.imageLogo} ${styles.logoDark}`} />
+                </>
+              )}
+            </div>
           )}
 
           <button 
@@ -115,15 +127,25 @@ const Sidebar = () => {
         </nav>
 
         <div className={styles.sidebarFooter}>
-          <div className={styles.profileCard}>
-            <div className={styles.avatar}>VT</div>
+          <button 
+            className={styles.profileCard} 
+            onClick={(e) => {
+              e.preventDefault();
+              logout();
+            }} 
+            title="Clique para sair"
+          >
+             <div className={styles.avatar}>
+               {user?.name?.charAt(0) || 'U'}
+               {user?.name?.split(' ')[1]?.charAt(0) || ''}
+             </div>
             {!isCollapsed && (
               <div className={styles.profileInfo}>
-                <p>Admin Vórtice</p>
-                <span>Super Admin</span>
+                <p>{user?.name || 'Carregando...'}</p>
+                <span>{user?.role || 'Acessando...'}</span>
               </div>
             )}
-          </div>
+          </button>
         </div>
       </aside>
     </>

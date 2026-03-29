@@ -41,6 +41,7 @@ const PRESET_ICONS_MAP: Record<string, any> = {
 import styles from './page.module.css';
 
 import { useLeads } from '@/context/LeadContext';
+import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 
 const initialKpis = [
@@ -158,11 +159,25 @@ export default function Dashboard() {
   const [kpis, setKpis] = React.useState(initialKpis);
   const [teamStats, setTeamStats] = React.useState<any[]>([]);
   const [funnel, setFunnel] = React.useState<any[]>([]);
-  const [recentActivities, setRecentActivities] = React.useState(activities);
+  const [recentUpdates, setRecentUpdates] = React.useState<any[]>([]);
   const [isFiltering, setIsFiltering] = React.useState(false);
   
+  // Real Analytics States
+  const [realTma, setRealTma] = React.useState(0);
+  const [realTme, setRealTme] = React.useState(0);
+  const [realSources, setRealSources] = React.useState<any[]>([]);
+  const [realStatusCounts, setRealStatusCounts] = React.useState({ open: 0, finished: 0, transferred: 0 });
+  
   const { leads, dbStatus, refreshDatabase } = useLeads();
+  const { user } = useAuth();
   const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const firstName = (mounted && user?.name) ? user.name.split(' ')[0] : 'Admin';
 
   const handleRefresh = React.useCallback(async () => {
     setIsRefreshing(true);
@@ -199,8 +214,17 @@ export default function Dashboard() {
       }
     };
 
+    const fetchUpdates = async () => {
+      if (supabase) {
+        const { data } = await supabase.from('system_updates').select('*').order('created_at', { ascending: false }).limit(6);
+        if (data && data.length > 0) setRecentUpdates(data);
+        else setRecentUpdates([{ user_name: 'Sistema', action: 'Monitorando novas atualizações...', created_at: new Date().toISOString() }]);
+      }
+    };
+
     fetchBanners();
     fetchTeam();
+    fetchUpdates();
   }, [dbStatus]);
 
   // Sync Dashboard Numbers with real Leads
@@ -208,13 +232,38 @@ export default function Dashboard() {
     setIsFiltering(true);
     
     setTimeout(() => {
+      // 1. Analytics Operacional (Dados Reais do Banco)
+      const avgTma = leads.reduce((acc, l) => acc + (l.handlingTime || 0), 0) / (leads.length || 1);
+      const avgTme = leads.reduce((acc, l) => acc + (l.waitTime || 0), 0) / (leads.length || 1);
+
+      // 2. Status de Atendimentos (Agrupado por Stage/Status)
+      const stageCounts: Record<string, number> = {};
+      leads.forEach(l => { stageCounts[l.pipelineStage] = (stageCounts[l.pipelineStage] || 0) + 1; });
+      
+      const finishedCount = stageCounts['ganho'] || 0;
+      const openCount = leads.length - finishedCount;
+      const transferredCount = 0; // Futuro: Implementar campo 'transferred' no DB
+
+      // 3. Fontes de Origem (Calculado em %)
+      const sourceCounts: Record<string, number> = {};
+      leads.forEach(l => { 
+        const s = l.source || 'Tráfego Direto';
+        sourceCounts[s] = (sourceCounts[s] || 0) + 1; 
+      });
+      const calculatedSources = Object.entries(sourceCounts).map(([name, count]) => ({
+        name,
+        value: Math.round((count / (leads.length || 1)) * 100),
+        color: name === 'Google Ads' ? '#3b82f6' : name === 'Site' ? '#10b981' : '#f59e0b'
+      })).sort((a, b) => b.value - a.value);
+
+      // 4. KPIs Financeiros
       const wonLeads = leads.filter(l => l.pipelineStage === 'ganho');
       const totalRevenue = wonLeads.reduce((acc, l) => {
         const raw = String(l.value || '0');
         return acc + (parseFloat(raw.replace(/[^0-9,-]+/g,"").replace(",",".") || "0") || 0);
       }, 0);
       const ticketMedio = wonLeads.length > 0 ? totalRevenue / wonLeads.length : 0;
-      const conversion = leads.length > 0 ? (wonLeads.length / leads.length) * 100 : 0;
+      const conversionValue = leads.length > 0 ? (wonLeads.length / leads.length) * 100 : 0;
 
       const newKpis = [
         { 
@@ -228,15 +277,12 @@ export default function Dashboard() {
           value: new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(ticketMedio), 
           trend: 'Geral', icon: Award, color: '#10b981' 
         },
-        { label: 'Conversão', value: `${conversion.toFixed(1)}%`, trend: 'Ganhos/Total', icon: Activity, color: '#f59e0b' },
+        { label: 'Conversão', value: `${conversionValue.toFixed(1)}%`, trend: 'Ganhos/Total', icon: Activity, color: '#f59e0b' },
       ];
 
       setKpis(newKpis);
 
       // Real Funnel State
-      const stageCounts: Record<string, number> = {};
-      leads.forEach(l => { stageCounts[l.pipelineStage] = (stageCounts[l.pipelineStage] || 0) + 1; });
-      
       const newFunnel = [
         { label: 'Leads', value: leads.length, icon: Users, color: '#3b82f6' },
         { label: 'Qualificados', value: (stageCounts['contato'] || 0) + (stageCounts['proposta'] || 0) + (stageCounts['negociacao'] || 0) + (stageCounts['ganho'] || 0), icon: UserCheck, color: '#8b5cf6' },
@@ -244,6 +290,12 @@ export default function Dashboard() {
         { label: 'Fechados', value: stageCounts['ganho'] || 0, icon: DollarSign, color: '#10b981' },
       ];
       setFunnel(newFunnel);
+
+      // Update Local State for Metrics
+      setRealTma(Math.floor(avgTma));
+      setRealTme(Math.floor(avgTme));
+      setRealSources(calculatedSources);
+      setRealStatusCounts({ open: openCount, finished: finishedCount, transferred: transferredCount });
 
       setIsFiltering(false);
     }, 400);
@@ -283,7 +335,7 @@ export default function Dashboard() {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <h2>Bem-vindo de volta, Admin 👋</h2>
+            <h2>Bem-vindo de volta, {firstName} 👋</h2>
             <p>Aqui está o que está acontecendo no seu funil de vendas hoje.</p>
           </motion.div>
           
@@ -406,15 +458,92 @@ export default function Dashboard() {
             </div>
             <span className={styles.onlineBadge}>Live</span>
           </div>
-          <div className={styles.kpiValue}>8 / 12</div>
+          <div className={styles.kpiValue}>
+            {teamStats.filter(u => u.status === 'ACTIVE' || u.status === 'online').length} / {teamStats.length}
+          </div>
           <div className={styles.kpiLabel}>Usuários Online</div>
           <div className={styles.progressBarContainer}>
-            <div className={styles.progressBarFiller} style={{ width: '66.6%' }}></div>
+            <div 
+              className={styles.progressBarFiller} 
+              style={{ width: `${teamStats.length > 0 ? (teamStats.filter(u => u.status === 'ACTIVE' || u.status === 'online').length / teamStats.length) * 100 : 0}%` }}
+            ></div>
           </div>
           <div className={styles.progressInfo}>
-            <span>66% da equipe ativa</span>
+            <span>{teamStats.length > 0 ? ((teamStats.filter(u => u.status === 'ACTIVE' || u.status === 'online').length / teamStats.length) * 100).toFixed(0) : 0}% da equipe ativa</span>
           </div>
         </motion.div>
+      </section>
+
+      <section className={styles.metricsSection}>
+        <div className={styles.sectionHeader}>
+          <h3 className={styles.sectionTitle}>Métricas de Atendimento</h3>
+        </div>
+        <div className={styles.metricsGrid}>
+          <div className={styles.metricCard}>
+            <div className={styles.metricIcon} style={{ background: '#3b82f615', color: '#3b82f6' }}>
+              <Clock size={20} />
+            </div>
+            <div className={styles.metricInfo}>
+              <span className={styles.metricLabel}>TMA Médio</span>
+              <div className={styles.metricValue}>{realTma}m</div>
+              <p className={styles.metricSub}>Tempo de conversa médio</p>
+            </div>
+          </div>
+
+          <div className={styles.metricCard}>
+            <div className={styles.metricIcon} style={{ background: '#ef444415', color: '#ef4444' }}>
+              <AlertCircle size={20} />
+            </div>
+            <div className={styles.metricInfo}>
+              <span className={styles.metricLabel}>TME Médio</span>
+              <div className={styles.metricValue}>{realTme}m</div>
+              <p className={styles.metricSub}>Tempo de espera médio</p>
+            </div>
+          </div>
+
+          <div className={styles.chatsStatusCard}>
+             <div className={styles.chatsStatusHeader}>
+                <MessageCircle size={18} />
+                <span>Status de Atendimentos</span>
+             </div>
+             <div className={styles.chatsStatusGrid}>
+                <div className={styles.statusItem}>
+                   <span className={styles.statusLabel}>Abertos</span>
+                   <span className={styles.statusValue} style={{ color: '#f59e0b' }}>{realStatusCounts.open}</span>
+                </div>
+                <div className={styles.statusDivider}></div>
+                <div className={styles.statusItem}>
+                   <span className={styles.statusLabel}>Finalizados</span>
+                   <span className={styles.statusValue} style={{ color: '#10b981' }}>{realStatusCounts.finished}</span>
+                </div>
+                <div className={styles.statusDivider}></div>
+                <div className={styles.statusItem}>
+                   <span className={styles.statusLabel}>Transferidos</span>
+                   <span className={styles.statusValue} style={{ color: '#3b82f6' }}>{realStatusCounts.transferred}</span>
+                </div>
+             </div>
+          </div>
+
+          <div className={styles.sourcesCard}>
+             <div className={styles.sourcesHeader}>
+                <Globe size={18} />
+                <span>Fontes de Origem (Real)</span>
+             </div>
+             <div className={styles.sourcesList}>
+                {realSources.length > 0 ? realSources.map((source, idx) => (
+                  <div key={idx} className={styles.sourceRow}>
+                    <div className={styles.sourceInfo}>
+                       <div className={styles.sourceColor} style={{ background: source.color }}></div>
+                       <span>{source.name}</span>
+                    </div>
+                    <span className={styles.sourcePercent}>{source.value}%</span>
+                  </div>
+                )) : (
+                  <div className={styles.noData}>Aguardando dados...</div>
+                )}
+             </div>
+          </div>
+        </div>
       </section>
 
 
@@ -469,29 +598,40 @@ export default function Dashboard() {
           <div className={styles.funnelSummary}>
             <div className={styles.summaryItem}>
               <span className={styles.summaryLabel}>Conversão Total</span>
-              <span className={styles.summaryValue}>11.3%</span>
+              <span className={styles.summaryValue}>{(leads.filter(l => l.pipelineStage === 'ganho').length / (leads.length || 1) * 100).toFixed(1)}%</span>
             </div>
             <div className={styles.summaryDivider}></div>
             <div className={styles.summaryItem}>
               <span className={styles.summaryLabel}>Ticket Médio</span>
-              <span className={styles.summaryValue}>R$ 4.250</span>
+              <span className={styles.summaryValue}>
+                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+                  leads.filter(l => l.pipelineStage === 'ganho').reduce((acc, l) => {
+                    const raw = String(l.value || '0');
+                    return acc + (parseFloat(raw.replace(/[^0-9,-]+/g,"").replace(",",".") || "0") || 0);
+                  }, 0) / (leads.filter(l => l.pipelineStage === 'ganho').length || 1)
+                )}
+              </span>
             </div>
           </div>
         </section>
 
         <section className={styles.chartContainer}>
-          <h3 className={styles.sectionTitle}>Atividade Recente</h3>
+          <h3 className={styles.sectionTitle}>Atualizações Recentes</h3>
           <div className={styles.activityList}>
-            {recentActivities.map((act, index) => (
+            {recentUpdates.map((act, index) => (
               <div key={index} className={styles.activityItem}>
                 <div className={styles.activityIcon}>
-                  <act.icon size={16} />
+                  {act.icon_name && PRESET_ICONS_MAP[act.icon_name] ? (
+                    React.createElement(PRESET_ICONS_MAP[act.icon_name], { size: 16 })
+                  ) : <TrendingUp size={16} />}
                 </div>
                 <div>
                   <p>
-                    <strong>{act.user}</strong> {act.action} {act.stage || act.target || ''}
+                    <strong>{act.user_name}</strong> {act.action} {act.target || ''}
                   </p>
-                  <span className={styles.activityTime}>{act.time}</span>
+                  <span className={styles.activityTime}>
+                    {new Date(act.created_at || Date.now()).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} • {new Date(act.created_at || Date.now()).toLocaleDateString('pt-BR')}
+                  </span>
                 </div>
               </div>
             ))}

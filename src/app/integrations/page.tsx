@@ -15,18 +15,22 @@ import {
   ArrowUpRight,
   X,
   Link2,
-  Lock
+  Lock,
+  ChevronRight,
+  Loader2
 } from 'lucide-react';
 import styles from './integrations.module.css';
+import { supabase } from '@/lib/supabase';
+import { WhatsAppService } from '@/lib/whatsapp';
 
 const INTEGRATIONS = [
   {
     id: 'whatsapp',
-    name: 'WhatsApp Business',
-    description: 'Envie mensagens automatizadas e sincronize o histórico de chat diretamente no funil do CRM.',
+    name: 'WhatsApp Business API',
+    description: 'Integração oficial via Meta para envio de mensagens escaláveis e automação profissional.',
     icon: MessageCircle,
     category: 'Comunicação',
-    status: 'connected', // Simulando já conectado
+    status: 'pending', // Mudando para pendente para incentivar a configuração
     color: '#25D366'
   },
   {
@@ -40,8 +44,8 @@ const INTEGRATIONS = [
   },
   {
     id: 'meta-ads',
-    name: 'Meta Ads & Instagram',
-    description: 'Sincronize seus formulários de leads do Facebook e direct do Instagram para acompanhamento instantâneo.',
+    name: 'Meta (IG Direct & Messenger)',
+    description: 'Centralize mensagens do Direct e Messenger. Sincronize leads do Facebook Ads automaticamente.',
     icon: LayoutGrid,
     category: 'Marketing',
     status: 'not_connected',
@@ -70,12 +74,68 @@ const INTEGRATIONS = [
 const CATEGORIES = ['Todos', 'Marketing', 'Comunicação', 'Produtividade', 'Desenvolvimento'];
 
 export default function Integrations() {
-  const [filter, setFilter] = useState('All');
+  const [filter, setFilter] = useState('Todos'); // Changed to localized "Todos"
   const [searchQuery, setSearchQuery] = useState('');
   const [activeModal, setActiveModal] = useState<string | null>(null);
+  
+  // WhatsApp Config State
+  const [waConfig, setWaConfig] = useState({
+    token: '',
+    phoneId: '',
+    wabaId: ''
+  });
+  
+  // Meta Config State
+  const [metaConfig, setMetaConfig] = useState({
+    pageToken: '',
+    pageId: '',
+    instagramId: ''
+  });
+
+  const [isTesting, setIsTesting] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+
+  const handleTestConnection = async () => {
+    if (!waConfig.token || !waConfig.phoneId) {
+       alert("Preencha o Token e o Phone ID primeiro!");
+       return;
+    }
+    
+    setIsTesting(true);
+    const success = await WhatsAppService.validateConnection({
+      token: waConfig.token,
+      phoneId: waConfig.phoneId
+    });
+    
+    setIsTesting(false);
+    if (success) {
+      alert("✅ Conexão validada com sucesso via Meta Graph API!");
+    } else {
+      alert("❌ Falha na conexão. Verifique o Token e o ID do Telefone.");
+    }
+  };
+
+  const handleSaveConfig = async (type: 'whatsapp' | 'meta' = 'whatsapp') => {
+     setSaveStatus('saving');
+     // Logic for saving to Supabase (Mocked metadata for now)
+     console.log(`Saving ${type} config:`, type === 'whatsapp' ? waConfig : metaConfig);
+     
+     // Simulation of Supabase save
+     setTimeout(() => {
+        setSaveStatus('success');
+        setTimeout(() => {
+          setActiveModal(null);
+          setSaveStatus('idle');
+          
+          // Update local status mock
+          const target = INTEGRATIONS.find(i => i.id === (type === 'whatsapp' ? 'whatsapp' : 'meta-ads'));
+          if (target) target.status = 'connected';
+        }, 1500);
+     }, 1000);
+  };
 
   const filteredIntegrations = INTEGRATIONS.filter(item => {
-    const matchesFilter = filter === 'All' || item.category === filter;
+    const matchesFilter = filter === 'Todos' || item.category === filter;
     const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           item.description.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesFilter && matchesSearch;
@@ -94,34 +154,98 @@ export default function Integrations() {
               <div className={styles.iconBox} style={{ width: 40, height: 40, background: '#25D36622', color: '#25D366' }}>
                 <MessageCircle size={20} />
               </div>
-              Conexão WhatsApp (Baileys API)
+              <div>
+                <span style={{ fontSize: '1.1rem', display: 'block' }}>Configuração Official WhatsApp API</span>
+                <span style={{ fontSize: '0.75rem', opacity: 0.6, fontWeight: 400 }}>Plataforma Meta for Developers</span>
+              </div>
             </div>
             <button className={styles.closeBtn} onClick={() => setActiveModal(null)}><X size={20} /></button>
           </div>
           <div className={styles.modalBody}>
-            <p style={{ opacity: 0.7, fontSize: '0.95rem', lineHeight: 1.5 }}>
-              Sua instância atual está ativa! Todos os leads gerados e fluxos engatilhados usarão o número <strong>+55 (11) 99999-9999</strong>.
-            </p>
+            <div className={styles.alertBox}>
+              <p>Utilize o <strong>Token de Acesso Permanente (System User)</strong> para garantir que a conexão não expire.</p>
+              <a href="https://developers.facebook.com/" target="_blank" rel="noreferrer" style={{ color: '#25D366', fontSize: '0.8rem', textDecoration: 'underline', marginTop: '4px', display: 'inline-block' }}>Acessar Portal do Desenvolvedor →</a>
+            </div>
 
-            <div style={{ background: 'var(--panel-bg)', border: '1px solid var(--border)', padding: '1rem', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <p style={{ fontWeight: 600, fontSize: '0.9rem' }}>Status da Conexão</p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 10px #10b981' }}></div>
-                  <span style={{ fontSize: '0.85rem', color: '#10b981', fontWeight: 600 }}>Sessão Aberta</span>
+            <div className={styles.formGrid}>
+              <div className={styles.formGroup}>
+                <label>Token de Acesso (API Key)</label>
+                <div className={styles.inputWrapper}>
+                   <input 
+                      type="password" 
+                      placeholder="EAAG..." 
+                      className={styles.premiumInput} 
+                      value={waConfig.token}
+                      onChange={(e) => setWaConfig({...waConfig, token: e.target.value})}
+                   />
+                   <Lock size={14} className={styles.inputIcon} />
                 </div>
               </div>
-              <button style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>Desconectar</button>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className={styles.formGroup}>
+                  <label>ID do Número de Telefone</label>
+                  <input 
+                    type="text" 
+                    placeholder="Ex: 109283..." 
+                    className={styles.premiumInput} 
+                    value={waConfig.phoneId}
+                    onChange={(e) => setWaConfig({...waConfig, phoneId: e.target.value})}
+                  />
+                </div>
+                <div className={styles.formGroup}>
+                  <label>ID da Conta Business (WABA)</label>
+                  <input 
+                    type="text" 
+                    placeholder="Ex: 987654..." 
+                    className={styles.premiumInput} 
+                    value={waConfig.wabaId}
+                    onChange={(e) => setWaConfig({...waConfig, wabaId: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label>Webhook Verify Token (Opcional)</label>
+                <div className={styles.inputWrapper}>
+                  <input type="text" defaultValue="vortice_verify_token_2024" readOnly className={styles.premiumInput} style={{ background: 'rgba(255,255,255,0.03)', cursor: 'not-allowed' }} />
+                  <CheckCircle2 size={14} className={styles.inputIcon} color="#25D366" />
+                </div>
+                <small style={{ opacity: 0.5, marginTop: '4px', display: 'block' }}>URL Webhook: https://api.vorticecrm.com/webhooks/whatsapp</small>
+              </div>
             </div>
-            
-            <div className={styles.formGroup}>
-              <label>Nome da Instância</label>
-              <input type="text" defaultValue="Vendas Principal - SP" />
+
+            <div style={{ marginTop: '1.5rem', padding: '1rem', border: '1px solid var(--border)', borderRadius: '12px', background: 'rgba(255,255,255,0.01)' }}>
+               <h5 style={{ marginBottom: '0.5rem', fontSize: '0.9rem' }}>Recursos Ativados:</h5>
+               <ul style={{ fontSize: '0.85rem', opacity: 0.7, paddingLeft: '1.2rem', lineHeight: '1.6' }}>
+                  <li>Envio de Templates Oficiais (Utility, Marketing)</li>
+                  <li>Recebimento de Mensagens e Mídia em Tempo Real</li>
+                  <li>Métricas de Entrega e Leitura (Read Receipts)</li>
+                  <li>Suporte a Botões Interativos e Listas</li>
+               </ul>
             </div>
           </div>
           <div className={styles.modalFooter}>
-            <button className={styles.btnCancel} onClick={() => setActiveModal(null)}>Fechar</button>
-            <button className={styles.btnSave}>Salvar Configuração</button>
+            <button className={styles.btnCancel} onClick={() => setActiveModal(null)}>Cancelar</button>
+            <div style={{ display: 'flex', gap: '10px' }}>
+               <button 
+                  className={styles.btnTest} 
+                  onClick={handleTestConnection}
+                  disabled={isTesting}
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', color: 'white', padding: '10px 15px', borderRadius: '10px', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+               >
+                 {isTesting && <Loader2 size={14} className={styles.loader} />}
+                 {isTesting ? 'Validando...' : 'Testar Conexão'}
+               </button>
+               <button 
+                  className={styles.btnSave} 
+                  onClick={() => handleSaveConfig('whatsapp')}
+                  disabled={saveStatus !== 'idle'}
+                  style={{ background: '#25D366', color: 'black' }}
+               >
+                 {saveStatus === 'saving' ? 'Salvando...' : saveStatus === 'success' ? 'Salvo!' : 'Salvar e Ativar API'}
+               </button>
+            </div>
           </div>
         </>
       );
@@ -135,22 +259,88 @@ export default function Integrations() {
               <div className={styles.iconBox} style={{ width: 40, height: 40, background: '#1877F222', color: '#1877F2' }}>
                 <LayoutGrid size={20} />
               </div>
-              Sincronização com Meta (FB/IG)
+              <div>
+                <span style={{ fontSize: '1.1rem', display: 'block' }}>Configuração Meta Messaging</span>
+                <span style={{ fontSize: '0.75rem', opacity: 0.6 }}>Messenger & Instagram Direct API</span>
+              </div>
             </div>
             <button className={styles.closeBtn} onClick={() => setActiveModal(null)}><X size={20} /></button>
           </div>
           <div className={styles.modalBody}>
-            <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
-              <div style={{ width: 64, height: 64, background: '#1877F2', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.5rem', boxShadow: '0 10px 25px rgba(24, 119, 242, 0.3)' }}>
-                <LayoutGrid size={28} color="white" />
+             <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+                <div style={{ flex: 1, padding: '1rem', background: 'rgba(24, 119, 242, 0.05)', borderRadius: '12px', border: '1px solid rgba(24, 119, 242, 0.2)', textAlign: 'center' }}>
+                    <MessageCircle size={20} color="#1877F2" style={{ marginBottom: '8px' }} />
+                    <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>Messenger</div>
+                    <div style={{ fontSize: '0.75rem', opacity: 0.6 }}>Ativo via Page API</div>
+                </div>
+                <div style={{ flex: 1, padding: '1rem', background: 'rgba(225, 48, 108, 0.05)', borderRadius: '12px', border: '1px solid rgba(225, 48, 108, 0.2)', textAlign: 'center' }}>
+                    <Camera size={20} color="#E1306C" style={{ marginBottom: '8px' }} />
+                    <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>Instagram</div>
+                    <div style={{ fontSize: '0.75rem', opacity: 0.6 }}>Ativo via Graph API</div>
+                </div>
+             </div>
+
+            <div className={styles.formGrid}>
+              <div className={styles.formGroup}>
+                <label>Page Access Token (Token da Página)</label>
+                <div className={styles.inputWrapper}>
+                   <input 
+                      type="password" 
+                      placeholder="EAAO..." 
+                      className={styles.premiumInput} 
+                      value={metaConfig.pageToken}
+                      onChange={(e) => setMetaConfig({...metaConfig, pageToken: e.target.value})}
+                   />
+                   <Lock size={14} className={styles.inputIcon} />
+                </div>
               </div>
-              <h4 style={{ fontSize: '1.2rem', marginBottom: '0.5rem' }}>Autenticação OAuth2</h4>
-              <p style={{ opacity: 0.6, fontSize: '0.9rem', marginBottom: '2rem' }}>Ao conectar sua conta, o Vórtice CRM poderá ler seus Forms de Lead e mensagens do Direct automaticamente.</p>
-              
-              <button style={{ width: '100%', padding: '14px', background: '#1877F2', color: 'white', borderRadius: '12px', border: 'none', fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', cursor: 'pointer' }}>
-                <Lock size={18} /> Validar com Facebook
-              </button>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className={styles.formGroup}>
+                  <label>ID da Página Facebook</label>
+                  <input 
+                    type="text" 
+                    placeholder="Ex: 1045..." 
+                    className={styles.premiumInput} 
+                    value={metaConfig.pageId}
+                    onChange={(e) => setMetaConfig({...metaConfig, pageId: e.target.value})}
+                  />
+                </div>
+                <div className={styles.formGroup}>
+                  <label>ID Instagram Business</label>
+                  <input 
+                    type="text" 
+                    placeholder="Ex: 1784..." 
+                    className={styles.premiumInput} 
+                    value={metaConfig.instagramId}
+                    onChange={(e) => setMetaConfig({...metaConfig, instagramId: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                 <p style={{ fontSize: '0.8rem', opacity: 0.6, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Globe size={14} /> Webhook Meta: <code>https://api.vorticecrm.com/webhooks/meta</code>
+                 </p>
+              </div>
+
+               <button 
+                  style={{ width: '100%', padding: '12px', background: '#1877F2', color: 'white', borderRadius: '12px', border: 'none', fontSize: '0.9rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', cursor: 'pointer', marginTop: '0.5rem' }}
+                >
+                  <Lock size={16} /> Autenticar via OAuth2 (Rápido)
+                </button>
             </div>
+          </div>
+          <div className={styles.modalFooter}>
+            <button className={styles.btnCancel} onClick={() => setActiveModal(null)}>Cancelar</button>
+            <button 
+                className={styles.btnSave} 
+                onClick={() => handleSaveConfig('meta')}
+                style={{ background: '#1877F2', color: 'white' }}
+                disabled={saveStatus !== 'idle'}
+            >
+               {saveStatus === 'saving' ? 'Conectando...' : saveStatus === 'success' ? 'Salvo!' : 'Ativar Integração Meta'}
+            </button>
           </div>
         </>
       );
