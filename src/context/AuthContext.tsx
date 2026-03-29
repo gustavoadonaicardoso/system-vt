@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { logAudit } from '@/lib/audit';
 
 export interface UserProfile {
   id: string;
@@ -61,6 +62,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
+    if (user) {
+      logAudit(
+        { id: user.id, name: user.name },
+        'LOGOUT',
+        `Usuário ${user.name} saiu do sistema.`
+      );
+    }
     localStorage.removeItem('vortice_user');
     setUser(null);
     setIsAuthenticated(false);

@@ -15,7 +15,7 @@
   border-radius: 40px;
   padding: 60px;
   width: 100%;
-  max-width: 600px;
+  max-width: 800px;
   text-align: center;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
   animation: fadeIn 0.8s ease-out;
@@ -54,6 +54,18 @@
   gap: 25px;
 }
 
+.gridFields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 600px) {
+  .gridFields {
+    grid-template-columns: 1fr;
+  }
+}
+
 .inputGroup {
   text-align: left;
 }
@@ -71,10 +83,10 @@
   width: 100%;
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 20px;
+  padding: 15px 20px;
   border-radius: 15px;
   color: white;
-  font-size: 1.5rem;
+  font-size: 1.2rem;
   transition: all 0.3s;
 }
 
@@ -97,6 +109,7 @@
   box-shadow: 0 10px 30px rgba(59, 130, 246, 0.4);
   transition: all 0.4s;
   cursor: pointer;
+  margin-top: 10px;
 }
 
 .submitBtn:hover {

@@ -7,6 +7,7 @@ import styles from './display.module.css';
 interface Ticket {
   id: string;
   number: number;
+  name?: string;
   desk: string;
   status: string;
   created_at: string;
@@ -119,6 +120,11 @@ export default function DisplayPage() {
           <h1 className={styles.ticketNumber} style={{ color: settings?.primary_color || 'white' }}>
             {currentTicket ? currentTicket.number.toString().padStart(2, '0') : '--'}
           </h1>
+          {currentTicket?.name && (
+            <div className={styles.clientName}>
+              {currentTicket.name}
+            </div>
+          )}
           <div className={styles.deskInfo} style={{ color: settings?.primary_color || '#3b82f6' }}>
             {currentTicket ? `GUICHÊ ${currentTicket.desk}` : 'AGUARDANDO...'}
           </div>
@@ -132,6 +138,7 @@ export default function DisplayPage() {
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   <span className={styles.historyTicket}>
                     #{ticket.number.toString().padStart(2, '0')}
+                    {ticket.name && <span style={{ fontSize: '0.9rem', color: '#a5b4fc', marginLeft: '10px', textTransform: 'uppercase' }}>{ticket.name}</span>}
                   </span>
                   <span style={{ fontSize: '0.8rem', opacity: 0.6 }}>
                     {new Date(ticket.updated_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}

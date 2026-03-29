@@ -98,7 +98,7 @@
 }
 
 .refreshBtn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--border);
   border-color: var(--accent);
   color: var(--accent);
 }
@@ -250,11 +250,12 @@
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--panel-bg);
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--accent);
+  border: 1px solid var(--border);
   opacity: 1; /* Ensure icon is visible */
 }
 
@@ -507,7 +508,7 @@
 .progressBarContainer {
   width: 100%;
   height: 6px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--border);
   border-radius: 10px;
   margin: 1rem 0 0.5rem;
   overflow: hidden;

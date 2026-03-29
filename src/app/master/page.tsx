@@ -72,7 +72,7 @@ export default function MasterPage() {
       desc: 'Veja o histórico completo de ações de todos os atendentes e robôs.',
       icon: Activity,
       color: '#10b981',
-      path: '#'
+      path: '/admin/logs'
     },
     {
       id: 'automations',

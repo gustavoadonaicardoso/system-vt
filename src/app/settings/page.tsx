@@ -45,8 +45,32 @@ export default function SettingsPage() {
   const [notifWhatsApp, setNotifWhatsApp] = useState(true);
   const [notifBrowser, setNotifBrowser] = useState(false);
 
-  const handleSave = () => {
-    alert("Configurações salvas com sucesso!");
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      if (activeTab === 'senhas') {
+        const { error } = await supabase?.from('queue_settings').upsert({
+          id: 'default',
+          total_desks: queueTotalDesks,
+          logo_url: queueLogoUrl,
+          banner_url: queueBannerUrl,
+          app_name: queueAppName,
+          primary_color: queuePrimaryColor,
+          secondary_color: queueSecondaryColor,
+          welcome_text: welcomeText,
+          updated_at: new Date().toISOString()
+        }) || { error: 'Supabase missing' };
+
+        if (error) throw error;
+        alert("Configurações de senhas salvas com sucesso!");
+      } else {
+        alert("Configurações salvas com sucesso!");
+      }
+    } catch (err: any) {
+      alert("Erro ao salvar: " + err.message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const renderContent = () => {

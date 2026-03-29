@@ -2,6 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
+import { logAudit } from '@/lib/audit';
+import { useAuth } from '@/context/AuthContext';
 
 export type Lead = {
   id: string;
@@ -73,6 +75,7 @@ export const useLeads = () => {
 };
 
 export const LeadProvider = ({ children }: { children: ReactNode }) => {
+  const { user } = useAuth();
   const [leads, setLeads] = useState<Lead[]>(INITIAL_LEADS);
   const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>(INITIAL_PIPELINE_STAGES);
   const [tags, setTags] = useState<string[]>(['Quente', 'Frio', 'VIP', 'SSD', 'Inativa', 'Ganhos', 'Proposta']);
@@ -127,6 +130,27 @@ export const LeadProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     fetchDatabase();
+
+    // Subscribe to realtime changes on leads and pipeline_stages
+    if (!supabase) return;
+
+    const channel = supabase
+      .channel('leads_realtime_changes')
+      .on(
+        'postgres_changes',
+        { event: '*', table: 'leads', schema: 'public' },
+        () => fetchDatabase()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', table: 'pipeline_stages', schema: 'public' },
+        () => fetchDatabase()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchDatabase]);
 
   const openModal = () => setIsModalOpen(true);
@@ -147,6 +171,16 @@ export const LeadProvider = ({ children }: { children: ReactNode }) => {
 
       if (data && data.length > 0) {
         const l = data[0];
+        
+        // Log Audit
+        logAudit(
+          user, 
+          'LEAD_CREATE', 
+          `Lead ${l.name} criado manualmente no sistema.`,
+          'lead',
+          l.id
+        );
+
         const newLead: Lead = {
           ...leadData,
           id: l.id,
@@ -198,6 +232,15 @@ export const LeadProvider = ({ children }: { children: ReactNode }) => {
       if (updates.pipelineStage) dbUpdates.stage_id = updates.pipelineStage;
       
       await supabase.from('leads').update(dbUpdates).eq('id', leadId);
+
+      // Log Audit
+      logAudit(
+        user,
+        'LEAD_UPDATE',
+        `Lead ${leadId} atualizado. Campos: ${Object.keys(updates).join(', ')}`,
+        'lead',
+        leadId
+      );
     }
 
     setLeads(prev => prev.map(l => l.id === leadId ? { ...l, ...updates } : l));
@@ -206,6 +249,15 @@ export const LeadProvider = ({ children }: { children: ReactNode }) => {
   const deleteLead = async (leadId: string) => {
     if (supabase && dbStatus && !leadId.startsWith('lead-')) {
        await supabase.from('leads').delete().eq('id', leadId);
+
+       // Log Audit
+       logAudit(
+         user,
+         'LEAD_DELETE',
+         `Lead ${leadId} removido permanentemente.`,
+         'lead',
+         leadId
+       );
     }
 
     setLeads(prev => prev.filter(l => l.id !== leadId));

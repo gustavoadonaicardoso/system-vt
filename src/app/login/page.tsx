@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import styles from './login.module.css';
 import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/lib/supabase';
+import { logAudit } from '@/lib/audit';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -46,8 +46,16 @@ export default function LoginPage() {
         return;
       }
 
+      // Log successful login
+      await logAudit(
+        { id: data.id, name: data.name },
+        'LOGIN',
+        `Usuário ${data.name} (${data.role}) fez login no sistema.`
+      );
+
       login(data);
     } catch (err) {
+      console.error('Login error:', err);
       setError('Falha na autenticação. Tente novamente.');
       setIsLoading(false);
     }

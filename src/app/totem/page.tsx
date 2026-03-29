@@ -3,15 +3,25 @@
 import { useState, FormEvent } from 'react';
 import { supabase } from '@/lib/supabase';
 import styles from './totem.module.css';
+import { logAudit } from '@/lib/audit';
 
 export default function TotemPage() {
   const [name, setName] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
+  const [document, setDocument] = useState('');
   const [issuedTicket, setIssuedTicket] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (isLoading) return;
+    
+    // Basic validation
+    if (!name.trim()) {
+      alert('Por favor, informe seu nome completo.');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -22,14 +32,55 @@ export default function TotemPage() {
       const nextNumber = lastNumber + 1;
 
       // 2. Insert new ticket
-      const { error: insertError } = await (supabase?.from('queue_tickets').insert([
-        { number: nextNumber, name: name || 'Paciente/Cliente', status: 'waiting' }
-      ]) || { error: 'No client' });
+      const ticketData = { 
+        number: nextNumber, 
+        name: name.trim(), 
+        status: 'waiting',
+        whatsapp: whatsapp.trim(),
+        document: document.trim()
+      };
+
+      let { error: insertError } = await (supabase?.from('queue_tickets').insert([ticketData]) || { error: { message: 'Supabase não inicializado' } });
+
+      // If it fails, try a fallback without the new columns (whatsapp/document)
+      if (insertError && (insertError as any).code === 'PGRST204') {
+        console.warn('Colunas whatsapp/document ausentes, tentando fallback...');
+        const fallbackData = { number: nextNumber, name: name.trim(), status: 'waiting' };
+        const { error: fallbackError } = await (supabase?.from('queue_tickets').insert([fallbackData]) || { error: { message: 'Supabase não inicializado' } });
+        insertError = fallbackError;
+      }
 
       if (!insertError) {
         setIssuedTicket(nextNumber);
+
+        // Audit Log
+        logAudit(
+          null,
+          'TICKET_CREATE',
+          `Nova senha #${nextNumber} gerada via Totem para ${name.trim()}.`,
+          'ticket',
+          nextNumber.toString()
+        );
+
+        // 3. Automatically create a Lead (optional/fail-safe)
+        try {
+          const { data: stageData } = await (supabase?.from('pipeline_stages').select('id').order('position').limit(1) || { data: null });
+          const stageId = stageData?.[0]?.id || 'novo';
+
+          await supabase?.from('leads').insert([{
+            name: name.trim(),
+            phone: whatsapp.trim(),
+            cpf_cnpj: document.trim(),
+            source: 'Totem',
+            stage_id: stageId,
+            tags: ['Totem', 'Presencial']
+          }]);
+        } catch (leadErr) {
+          console.error('Lead sync error:', leadErr);
+        }
       } else {
-        alert('Erro ao gerar senha, tente novamente.');
+        console.error('Full Insert Error:', insertError);
+        alert(`Erro ao gerar senha: ${insertError?.message || 'Erro desconhecido'}`);
       }
     } catch (err) {
       console.error(err);
@@ -42,6 +93,8 @@ export default function TotemPage() {
   const handleReset = () => {
     setIssuedTicket(null);
     setName('');
+    setWhatsapp('');
+    setDocument('');
   };
 
   return (
@@ -52,19 +105,44 @@ export default function TotemPage() {
         {issuedTicket === null ? (
           <>
             <h1 className={styles.title}>Retirar Senha</h1>
-            <p className={styles.subtitle}>Insira seu nome para entrar na fila</p>
+            <p className={styles.subtitle}>Preencha os dados abaixo para entrar na fila</p>
             
             <form onSubmit={handleSubmit} className={styles.form}>
               <div className={styles.inputGroup}>
-                <label className={styles.label}>NOME (opcional)</label>
+                <label className={styles.label}>NOME COMPLETO</label>
                 <input 
                   type="text" 
                   className={styles.input} 
                   value={name} 
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Seu nome"
+                  required
                   autoFocus
                 />
+              </div>
+
+              <div className={styles.gridFields}>
+                <div className={styles.inputGroup}>
+                  <label className={styles.label}>WHATSAPP</label>
+                  <input 
+                    type="tel" 
+                    className={styles.input} 
+                    value={whatsapp} 
+                    onChange={(e) => setWhatsapp(e.target.value)}
+                    placeholder="(00) 00000-0000"
+                  />
+                </div>
+
+                <div className={styles.inputGroup}>
+                  <label className={styles.label}>DOCUMENTO (CPF/RG)</label>
+                  <input 
+                    type="text" 
+                    className={styles.input} 
+                    value={document} 
+                    onChange={(e) => setDocument(e.target.value)}
+                    placeholder="Seu documento"
+                  />
+                </div>
               </div>
               
               <button 
@@ -95,3 +173,4 @@ export default function TotemPage() {
     </div>
   );
 }
+
